@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 隐患详情</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #F0F0F0; min-height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: #F5F5F5; color: #262626; font-size: 14px; max-width: 390px; margin: 0 auto; min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06); }
+    .top-bar { background: #fff; border-bottom: 1px solid #F0F0F0; display: flex; align-items: center;
+      padding: 0 16px; height: 48px; position: sticky; top: 0; z-index: 100; }
+    .back-btn { background: none; border: none; font-size: 24px; cursor: pointer; padding: 0; width: 32px; }
+    .top-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; }
+    .page-content { padding: 8px; padding-bottom: 100px; }
+    .card { background: #fff; border-radius: 8px; padding: 14px 16px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .section-title { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+    .field-row { display: flex; padding: 7px 0; border-bottom: 1px solid #F0F0F0; }
+    .field-row:last-child { border-bottom: none; }
+    .field-label { color: #8C8C8C; font-size: 13px; min-width: 72px; }
+    .field-value { color: #262626; font-size: 13px; flex: 1; }
+    .status-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+    .photo-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+    .photo-thumb { width: 72px; height: 72px; border-radius: 6px; background: linear-gradient(135deg,#e0f0ff,#bae0ff);
+      display: flex; align-items: center; justify-content: center; font-size: 28px; cursor: pointer; }
+    .photo-preview-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: none;
+      align-items: center; justify-content: center; z-index: 10001; padding: 20px; }
+    .photo-preview-mask.show { display: flex; }
+    .photo-preview-box { width: min(320px, 100%); background: #fff; border-radius: 8px; overflow: hidden; }
+    .photo-preview-img { height: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(135deg,#cfe7ff,#91caff); color: #1d39c4; }
+    .photo-preview-icon { font-size: 72px; line-height: 1; }
+    .photo-preview-name { margin-top: 8px; font-size: 12px; color: #1f1f1f; padding: 0 10px; text-align: center; word-break: break-all; }
+    .photo-preview-actions { display: flex; justify-content: flex-end; padding: 10px 12px; border-top: 1px solid #F0F0F0; }
+    .preview-close-btn { border: none; background: #1677FF; color: #fff; border-radius: 4px; padding: 6px 14px; font-size: 13px; cursor: pointer; }
+    textarea { width: 100%; padding: 9px 12px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 14px; color: #262626; outline: none; resize: vertical; min-height: 80px; font-family: inherit; }
+    textarea:focus { border-color: #1677FF; }
+    .char-count { text-align: right; font-size: 11px; color: #BFBFBF; margin-top: 2px; }
+    .bottom-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 390px; background: #fff; border-top: 1px solid #F0F0F0;
+      padding: 10px 16px; display: flex; gap: 8px; z-index: 1000; }
+    .btn-primary { flex: 1; padding: 10px; background: #1677FF; color: #fff; border: none;
+      border-radius: 4px; font-size: 15px; font-weight: 500; cursor: pointer; }
+    .btn-danger { flex: 1; padding: 10px; background: #fff; color: #F5222D;
+      border: 1px solid #F5222D; border-radius: 4px; font-size: 15px; cursor: pointer; }
+    .sim-toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
+      font-size: 14px; z-index: 99999; opacity: 0; transition: all 0.3s; }
+    .sim-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .sim-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9000;
+      display: flex; align-items: center; justify-content: center; }
+    .sim-modal { background: #fff; border-radius: 8px; padding: 24px 20px; width: 300px; max-width: 90vw; }
+    .sim-modal h3 { margin: 0 0 12px; font-size: 16px; }
+    .sim-modal p { margin: 0 0 20px; font-size: 14px; color: #8C8C8C; }
+    .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-btns button { padding: 6px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn-modal-cancel { background: #fff; border: 1px solid #d9d9d9; color: #595959; }
+    .btn-modal-danger { background: #F5222D; color: #fff; border: none; }
+    .btn-modal-confirm { background: #1677FF; color: #fff; border: none; }
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <button class="back-btn" onclick="SIM.nav.back()">‹</button>
+    <div class="top-title">隐患详情</div>
+    <div style="width:32px"></div>
+  </div>
+  <div class="page-content" id="page-content"></div>
+  <div id="bottom-bar"></div>
+  <div class="photo-preview-mask" id="photo-preview-mask" onclick="closePhotoPreview()">
+    <div class="photo-preview-box" onclick="event.stopPropagation()">
+      <div class="photo-preview-img">
+        <div class="photo-preview-icon">📷</div>
+        <div class="photo-preview-name" id="photo-preview-name"></div>
+      </div>
+      <div class="photo-preview-actions">
+        <button class="preview-close-btn" onclick="closePhotoPreview()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const session = JSON.parse(localStorage.getItem('ywsf_session') || 'null');
+    if (!session) window.location.replace('login.html');
+    const params = new URLSearchParams(location.search);
+    const hazId = params.get('id');
+    let haz = SIM.utils.getHazardById(hazId) || SIM.data.hazards[0];
+    let localHaz = JSON.parse(JSON.stringify(haz));
+
+    SIM.utils.toast = function(msg) {
+      const el = document.createElement('div'); el.className = 'sim-toast'; el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.classList.add('show'), 10);
+      setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2000);
+    };
+
+    function render() {
+      const h = localHaz;
+      const isDeleted = h.status === 'DELETED';
+      document.getElementById('page-content').innerHTML = `
+        <div class="card">
+          <div class="section-title">隐患信息</div>
+          <div class="field-row">
+            <span class="field-label">隐患编号</span>
+            <span class="field-value" data-field>${h.id}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">id</span></div>
+                <div><span class="ft-key">类型</span>String</div>
+                <div><span class="ft-key">来源</span>系统生成 HAZ-YYYY-MMDD-NNN</div>
+                <div><span class="ft-key">说明</span>隐患唯一编号</div></div>
+            </span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">隐患类型</span>
+            <span class="field-value" data-field>${h.type}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">type</span></div>
+                <div><span class="ft-key">类型</span>Enum</div><div><span class="ft-key">来源</span>表单提交，六选一</div>
+                <div><span class="ft-key">说明</span>隐患类型：路面损坏/水质异常/火情隐患/违规排放/管道渗漏/其他</div></div>
+            </span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">上报人</span>
+            <span class="field-value" data-field>${h.reporterName}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">reporter_id → user.name</span></div>
+                <div><span class="ft-key">类型</span>Ref→User</div><div><span class="ft-key">来源</span>当前登录用户，不可修改</div>
+                <div><span class="ft-key">说明</span>隐患上报人</div></div>
+            </span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">上报时间</span>
+            <span class="field-value" data-field>${h.createdAt}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">created_at</span></div>
+                <div><span class="ft-key">类型</span>Timestamp</div><div><span class="ft-key">来源</span>系统生成，不可修改</div>
+                <div><span class="ft-key">说明</span>上报时间</div></div>
+            </span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">GPS位置</span>
+            <span class="field-value" data-field>${h.gpsLat ? `${h.gpsLat.toFixed(4)}, ${h.gpsLng.toFixed(4)}` : '未获取'}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">gps_lat / gps_lng</span></div>
+                <div><span class="ft-key">类型</span>Float|null</div><div><span class="ft-key">来源</span>GPS自动获取</div>
+                <div><span class="ft-key">说明</span>上报时的GPS坐标；未授权时null</div></div>
+            </span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">状态</span>
+            <span class="field-value">
+              <span class="status-tag" style="color:${isDeleted ? '#8C8C8C' : '#52C41A'};background:${isDeleted ? '#F5F5F5' : '#F6FFED'}"
+                data-field>${isDeleted ? '已删除' : '正常'}
+                <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">status</span></div>
+                  <div><span class="ft-key">类型</span>Enum ACTIVE|DELETED</div>
+                  <div><span class="ft-key">来源</span>系统/操作人</div>
+                  <div><span class="ft-key">说明</span>隐患状态，MVP只有ACTIVE/DELETED两态</div></div>
+              </span>
+              ${isDeleted ? `<span style="font-size:12px;color:#8C8C8C;margin-left:8px">软删除于 ${h.deletedAt}</span>` : ''}
+            </span>
+          </div>
+        </div>
+
+        ${h.description ? `<div class="card">
+          <div class="section-title">隐患描述</div>
+          <div style="font-size:14px;color:#262626;line-height:1.6" data-field>${h.description}
+            <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">description</span></div>
+              <div><span class="ft-key">类型</span>String|null</div><div><span class="ft-key">来源</span>表单提交，选填 max 200字</div>
+              <div><span class="ft-key">说明</span>隐患描述文字</div></div>
+          </div>
+        </div>` : ''}
+
+        <div class="card">
+          <div class="section-title">现场照片 (${h.photos.length}张)</div>
+          <div class="photo-grid" data-field>
+            ${h.photos.map((photo, index) => `<div class="photo-thumb" onclick="openPhotoPreview(${index})" title="点击查看大图">📷</div>`).join('')}
+            ${!h.photos.length ? '<span style="font-size:13px;color:#8C8C8C">暂无照片</span>' : ''}
+            <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">photos</span></div>
+              <div><span class="ft-key">类型</span>File[]</div><div><span class="ft-key">来源</span>表单提交，必填至少1张</div>
+              <div><span class="ft-key">说明</span>现场照片，仿真替代为图示</div></div>
+          </div>
+        </div>
+
+        ${!isDeleted ? `
+        <div class="card">
+          <div class="section-title">备注</div>
+          <textarea id="note-input" placeholder="追加备注（选填，最多200字）" maxlength="200"
+            oninput="document.getElementById('note-cc').textContent=this.value.length+'/200'"
+          >${h.note || ''}</textarea>
+          <div class="char-count" id="note-cc">${(h.note || '').length}/200</div>
+        </div>` : ''}
+      `;
+
+      // 底部操作区
+      if (!isDeleted) {
+        document.getElementById('bottom-bar').innerHTML = `
+          <div class="bottom-bar">
+            <button class="btn-danger" onclick="doDelete()">删 除</button>
+            <button class="btn-primary" onclick="saveNote()">保存备注</button>
+          </div>`;
+      } else {
+        document.getElementById('bottom-bar').innerHTML = '';
+      }
+    }
+
+    function openPhotoPreview(index) {
+      const photoName = (localHaz.photos && localHaz.photos[index]) || '';
+      document.getElementById('photo-preview-name').textContent = photoName;
+      document.getElementById('photo-preview-mask').classList.add('show');
+    }
+
+    function closePhotoPreview() {
+      document.getElementById('photo-preview-mask').classList.remove('show');
+    }
+
+    function saveNote() {
+      const note = document.getElementById('note-input')?.value || '';
+      localHaz.note = note || null;
+      SIM.utils.toast('备注已保存');
+    }
+
+    function doDelete() {
+      const overlay = document.createElement('div');
+      overlay.className = 'sim-modal-overlay';
+      overlay.innerHTML = `<div class="sim-modal">
+        <h3>确认删除？</h3>
+        <p>删除后数据仍保留但标记为已删除，操作不可逆。</p>
+        <div class="modal-btns">
+          <button class="btn-modal-cancel" onclick="this.closest('.sim-modal-overlay').remove()">取消</button>
+          <button class="btn-modal-danger" onclick="confirmDelete()">确认删除</button>
+        </div>
+      </div>`;
+      document.body.appendChild(overlay);
+    }
+
+    function confirmDelete() {
+      localHaz.status = 'DELETED';
+      localHaz.deletedAt = new Date().toISOString().slice(0,16).replace('T',' ');
+      document.querySelector('.sim-modal-overlay').remove();
+      SIM.utils.toast('已删除');
+      render();
+    }
+
+    render();
+    SIM.createPanel({});
+  </script>
+</body>
+</html>

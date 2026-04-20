@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 用户管理</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #F0F0F0; min-height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: #F5F5F5; color: #262626; font-size: 14px; max-width: 390px; margin: 0 auto; min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06); }
+    .top-bar { background: #fff; border-bottom: 1px solid #F0F0F0; display: flex; align-items: center;
+      padding: 0 16px; height: 48px; position: sticky; top: 0; z-index: 100; }
+    .back-btn { background: none; border: none; font-size: 24px; color: #262626; cursor: pointer; padding: 0; width: 32px; }
+    .top-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; }
+    .add-btn { background: #1677FF; color: #fff; border: none; border-radius: 4px;
+      padding: 4px 10px; font-size: 13px; cursor: pointer; }
+    .page-content { padding: 8px; padding-bottom: 24px; }
+    .user-card { background: #fff; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .uc-head { display: flex; align-items: center; margin-bottom: 8px; }
+    .uc-avatar { width: 40px; height: 40px; border-radius: 50%; background: #E6F4FF;
+      display: flex; align-items: center; justify-content: center; font-size: 20px; margin-right: 10px; flex-shrink: 0; }
+    .uc-info { flex: 1; min-width: 0; }
+    .uc-name { font-size: 15px; font-weight: 600; color: #262626; }
+    .uc-meta { font-size: 12px; color: #8C8C8C; margin-top: 2px; }
+    .uc-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .act-btn { padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+    .act-btn.edit { background: #E6F4FF; color: #1677FF; border: 1px solid #BAE0FF; }
+    .act-btn.toggle-active { background: #F6FFED; color: #52C41A; border: 1px solid #B7EB8F; }
+    .act-btn.toggle-inactive { background: #FFF2F0; color: #F5222D; border: 1px solid #FFA39E; }
+    .act-btn.reset { background: #FFFBE6; color: #FA8C16; border: 1px solid #FFD591; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+    /* Modal */
+    .sim-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9000;
+      display: flex; align-items: flex-end; }
+    .sim-sheet { background: #fff; border-radius: 16px 16px 0 0; width: 100%; max-width: 390px; margin: 0 auto;
+      padding: 20px 16px; max-height: 80vh; overflow-y: auto; }
+    .sheet-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; justify-content: space-between; }
+    .sheet-close { background: none; border: none; font-size: 22px; color: #8C8C8C; cursor: pointer; }
+    .form-item { margin-bottom: 14px; }
+    .form-label { font-size: 13px; color: #595959; margin-bottom: 6px; display: block; }
+    input[type=text], input[type=tel], select {
+      width: 100%; padding: 9px 12px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 14px; color: #262626; outline: none; background: #fff; font-family: inherit;
+    }
+    input:focus, select:focus { border-color: #1677FF; }
+    input.error { border-color: #F5222D; }
+    .err-msg { color: #F5222D; font-size: 12px; margin-top: 4px; display: none; }
+    .btn-primary { width: 100%; padding: 12px; background: #1677FF; color: #fff; border: none;
+      border-radius: 4px; font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 8px; }
+    .reset-result { background: #F6FFED; border: 1px solid #B7EB8F; border-radius: 6px; padding: 12px;
+      font-size: 14px; color: #52C41A; text-align: center; margin-top: 10px; }
+    .sim-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
+      font-size: 14px; z-index: 99999; opacity: 0; transition: all 0.3s; }
+    .sim-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .sim-modal-dialog { background: #fff; border-radius: 8px; padding: 24px 20px; width: 300px; max-width: 90vw; }
+    .sim-modal-dialog h3 { margin: 0 0 12px; font-size: 16px; }
+    .sim-modal-dialog p { margin: 0 0 20px; font-size: 14px; color: #8C8C8C; }
+    .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-btns button { padding: 6px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn-modal-cancel { background: #fff; border: 1px solid #d9d9d9; color: #595959; }
+    .btn-modal-confirm { background: #1677FF; color: #fff; border: none; }
+    .btn-modal-danger { background: #F5222D; color: #fff; border: none; }
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <button class="back-btn" onclick="SIM.nav.back()">‹</button>
+    <div class="top-title">用户管理</div>
+    <button class="add-btn" onclick="openAdd()">+ 新增</button>
+  </div>
+  <div class="page-content" id="user-list"></div>
+
+  <script>
+    const session = JSON.parse(localStorage.getItem('ywsf_session') || 'null');
+    if (!session || session.role !== 'ADMIN') {
+      window.location.replace('home.html');
+    }
+    const deptId = session.user.deptId;
+    // 本地用户列表（仿真）
+    let users = SIM.data.users.filter(u => u.deptId === deptId);
+
+    SIM.utils.toast = function(msg) {
+      const el = document.createElement('div'); el.className = 'sim-toast';
+      el.textContent = msg; document.body.appendChild(el);
+      setTimeout(() => el.classList.add('show'), 10);
+      setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2000);
+    };
+
+    function renderList() {
+      const container = document.getElementById('user-list');
+      container.innerHTML = users.map(u => `
+        <div class="user-card">
+          <div class="uc-head">
+            <div class="uc-avatar">${u.role === 'ADMIN' ? '👑' : '👤'}</div>
+            <div class="uc-info">
+              <div class="uc-name" data-field>${u.name}
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">name</span></div>
+                  <div><span class="ft-key">类型</span>String</div>
+                  <div><span class="ft-key">来源</span>管理员创建/编辑</div>
+                  <div><span class="ft-key">说明</span>用户姓名</div>
+                </div>
+              </div>
+              <div class="uc-meta">
+                <span data-field>${u.role === 'ADMIN' ? '交通局管理员' : '交通局执行人员'}
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">role</span></div>
+                    <div><span class="ft-key">类型</span>Enum ADMIN|EXECUTOR</div>
+                    <div><span class="ft-key">来源</span>管理员创建/编辑</div>
+                    <div><span class="ft-key">说明</span>用户角色类型</div>
+                  </div>
+                </span>
+                <span style="margin:0 6px">·</span>
+                <span data-field>${u.phone}
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">phone</span></div>
+                    <div><span class="ft-key">类型</span>String</div>
+                    <div><span class="ft-key">来源</span>管理员创建/编辑</div>
+                    <div><span class="ft-key">说明</span>手机号</div>
+                  </div>
+                </span>
+                <span style="margin-left:8px">
+                  <span class="status-dot" style="background:${u.status === 'ACTIVE' ? '#52C41A' : '#F5222D'}"></span>
+                  <span data-field style="font-size:12px">${u.status === 'ACTIVE' ? '正常' : '已停用'}
+                    <div class="ft">
+                      <div><span class="ft-key">字段名</span><span class="ft-mono">status</span></div>
+                      <div><span class="ft-key">类型</span>Enum ACTIVE|INACTIVE</div>
+                      <div><span class="ft-key">来源</span>管理员操作</div>
+                      <div><span class="ft-key">说明</span>账号状态，停用后无法登录</div>
+                    </div>
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="uc-actions">
+            <button class="act-btn edit" onclick="openEdit('${u.id}')">编辑</button>
+            ${u.status === 'ACTIVE'
+              ? `<button class="act-btn toggle-inactive" onclick="toggleStatus('${u.id}','INACTIVE')">停用</button>`
+              : `<button class="act-btn toggle-active" onclick="toggleStatus('${u.id}','ACTIVE')">启用</button>`}
+            <button class="act-btn reset" onclick="resetPwd('${u.id}')">重置密码</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openAdd() {
+      showForm({ id: null, name: '', role: 'EXECUTOR', phone: '' }, '新增账号');
+    }
+
+    function openEdit(id) {
+      const u = users.find(u => u.id === id);
+      if (u) showForm({ ...u }, '编辑账号');
+    }
+
+    function showForm(data, title) {
+      const overlay = document.createElement('div');
+      overlay.className = 'sim-modal-overlay';
+      overlay.innerHTML = `
+        <div class="sim-sheet">
+          <div class="sheet-title">
+            <span>${title}</span>
+            <button class="sheet-close" onclick="this.closest('.sim-modal-overlay').remove()">×</button>
+          </div>
+          <div class="form-item">
+            <label class="form-label">姓名 <span style="color:#F5222D">*</span></label>
+            <input type="text" id="f-name" value="${data.name}" placeholder="请输入姓名" maxlength="20">
+            <div class="err-msg" id="e-name">请输入姓名</div>
+          </div>
+          <div class="form-item">
+            <label class="form-label">角色 <span style="color:#F5222D">*</span></label>
+            <select id="f-role">
+              <option value="ADMIN" ${data.role === 'ADMIN' ? 'selected' : ''}>交通局管理员</option>
+              <option value="EXECUTOR" ${data.role === 'EXECUTOR' ? 'selected' : ''}>交通局执行人员</option>
+            </select>
+          </div>
+          <div class="form-item">
+            <label class="form-label">手机号 <span style="color:#F5222D">*</span></label>
+            <input type="tel" id="f-phone" value="${data.phone}" placeholder="请输入手机号" maxlength="11">
+            <div class="err-msg" id="e-phone">请输入手机号</div>
+            <div class="err-msg" id="e-phone-fmt">手机号格式不正确</div>
+          </div>
+          <button class="btn-primary" onclick="submitForm('${data.id || ''}')">保存</button>
+        </div>`;
+      document.body.appendChild(overlay);
+    }
+
+    function submitForm(id) {
+      const name = document.getElementById('f-name').value.trim();
+      const role = document.getElementById('f-role').value;
+      const phone = document.getElementById('f-phone').value.trim();
+      ['e-name','e-phone','e-phone-fmt'].forEach(i => document.getElementById(i).style.display = 'none');
+      let ok = true;
+      if (!name) { document.getElementById('e-name').style.display = 'block'; ok = false; }
+      if (!phone) { document.getElementById('e-phone').style.display = 'block'; ok = false; }
+      else if (!/^1[3-9]\d{9}$/.test(phone)) { document.getElementById('e-phone-fmt').style.display = 'block'; ok = false; }
+      if (!ok) return;
+      if (id) {
+        const u = users.find(u => u.id === id);
+        if (u) { u.name = name; u.role = role; u.phone = phone; }
+      } else {
+        users.push({ id: 'U' + Date.now(), name, role, phone, deptId, status: 'ACTIVE' });
+      }
+      document.querySelector('.sim-modal-overlay').remove();
+      SIM.utils.toast(id ? '账号信息已更新' : '新增账号成功，初始密码：Ywsf@123');
+      renderList();
+    }
+
+    function toggleStatus(id, status) {
+      const u = users.find(u => u.id === id);
+      if (!u) return;
+      const action = status === 'INACTIVE' ? '停用' : '启用';
+      const overlay = document.createElement('div');
+      overlay.className = 'sim-modal-overlay';
+      overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
+      overlay.innerHTML = `<div class="sim-modal-dialog">
+        <h3>确认${action}账号</h3>
+        <p>${action}后该账号将${status === 'INACTIVE' ? '无法登录' : '恢复正常登录'}。</p>
+        <div class="modal-btns">
+          <button class="btn-modal-cancel" onclick="this.closest('.sim-modal-overlay').remove()">取消</button>
+          <button class="${status === 'INACTIVE' ? 'btn-modal-danger' : 'btn-modal-confirm'}"
+            onclick="confirmToggle('${id}','${status}',this)">确认${action}</button>
+        </div>
+      </div>`;
+      document.body.appendChild(overlay);
+    }
+    function confirmToggle(id, status, btn) {
+      const u = users.find(u => u.id === id);
+      if (u) u.status = status;
+      btn.closest('.sim-modal-overlay').remove();
+      SIM.utils.toast(`账号已${status === 'INACTIVE' ? '停用' : '启用'}`);
+      renderList();
+    }
+
+    function resetPwd(id) {
+      const u = users.find(u => u.id === id);
+      if (!u) return;
+      const newPwd = 'Ywsf@' + Math.floor(1000 + Math.random() * 9000);
+      const overlay = document.createElement('div');
+      overlay.className = 'sim-modal-overlay';
+      overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
+      overlay.innerHTML = `<div class="sim-modal-dialog">
+        <h3>密码重置成功</h3>
+        <p>${u.name} 的新密码已生成，请线下告知用户。</p>
+        <div class="reset-result">新密码：${newPwd}</div>
+        <div class="modal-btns" style="margin-top:16px">
+          <button class="btn-modal-confirm" onclick="this.closest('.sim-modal-overlay').remove()">我已记录</button>
+        </div>
+      </div>`;
+      document.body.appendChild(overlay);
+    }
+
+    renderList();
+    SIM.createPanel({});
+  </script>
+</body>
+</html>

@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>一网统飞 PC — 需求池</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    .header-actions { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    /* 顶部Tab切换 REQ-003/HAZ-005 */
+    .main-tabs { display: flex; gap: 0; background: #fff; border-radius: 8px 8px 0 0;
+      border-bottom: 2px solid #F0F0F0; overflow: hidden; }
+    .main-tab { padding: 14px 24px; cursor: pointer; font-size: 15px; color: #8C8C8C;
+      border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+    .main-tab.active { color: #1677FF; border-bottom-color: #1677FF; font-weight: 600; }
+    /* 内容区 */
+    .pool-content { background: #fff; border-radius: 0 0 8px 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    /* 筛选栏 */
+    .filter-bar { padding: 12px 16px; border-bottom: 1px solid #F0F0F0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .filter-bar select, .filter-bar input { padding: 6px 10px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 13px; outline: none; background: #fff; }
+    .filter-bar select:focus, .filter-bar input:focus { border-color: #1677FF; }
+    .btn-query { padding: 6px 16px; background: #1677FF; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    /* 表格 */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { background: #FAFAFA; color: #8C8C8C; font-size: 13px; font-weight: 500;
+      text-align: left; padding: 12px 16px; border-bottom: 1px solid #F0F0F0; white-space: nowrap; }
+    .data-table td { padding: 13px 16px; border-bottom: 1px solid #F5F5F5; font-size: 13px; vertical-align: top; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: #FAFAFA; }
+    .status-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .action-link { display: inline-block; color: #1677FF; cursor: pointer; font-size: 13px; }
+    .action-link:hover { text-decoration: underline; }
+    .action-link.danger { color: #F5222D; margin-left: 10px; }
+    .action-link--disabled { color: #BFBFBF !important; cursor: not-allowed !important; opacity: 0.75; }
+    .action-link.danger.action-link--disabled { color: #FFA39E !important; }
+    .text-truncate { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; }
+    /* 详情抽屉 */
+    .drawer-overlay { position: fixed; inset: 0; z-index: 9000; }
+    .drawer-bg { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
+    .drawer { position: absolute; right: 0; top: 0; bottom: 0; width: 480px; max-width: 90vw;
+      background: #fff; box-shadow: -4px 0 16px rgba(0,0,0,0.15); overflow-y: auto; }
+    .drawer-header { padding: 16px 24px; border-bottom: 1px solid #F0F0F0; display: flex;
+      justify-content: space-between; align-items: center; position: sticky; top: 0; background: #fff; z-index: 1; }
+    .drawer-title { font-size: 16px; font-weight: 600; }
+    .drawer-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #8C8C8C; }
+    .drawer-body { padding: 16px 24px; }
+    .drawer-section { margin-bottom: 20px; }
+    .drawer-section-title { font-size: 14px; font-weight: 600; color: #262626; margin-bottom: 10px;
+      padding-bottom: 6px; border-bottom: 1px solid #F0F0F0; }
+    .drawer-field { display: flex; margin-bottom: 10px; gap: 12px; }
+    .drawer-label { color: #8C8C8C; font-size: 13px; min-width: 80px; flex-shrink: 0; }
+    .drawer-value { color: #262626; font-size: 13px; flex: 1; line-height: 1.6; }
+    /* 操作按钮 */
+    .drawer-actions { position: sticky; bottom: 0; background: #fff; padding: 14px 24px;
+      border-top: 1px solid #F0F0F0; display: flex; gap: 10px; }
+    .btn-primary { padding: 8px 20px; background: #1677FF; color: #fff; border: none;
+      border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-default { padding: 8px 16px; background: #fff; border: 1px solid #D9D9D9;
+      border-radius: 4px; cursor: pointer; font-size: 14px; color: #595959; }
+    .btn-danger { padding: 8px 16px; background: #fff; border: 1px solid #F5222D;
+      color: #F5222D; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn-primary:disabled, .btn-danger:disabled { opacity: 0.45; cursor: not-allowed; }
+    /* 处理弹窗 */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9100;
+      display: flex; align-items: center; justify-content: center; }
+    .modal-box { background: #fff; border-radius: 8px; padding: 24px; width: 400px; max-width: 90vw; }
+    .modal-box h3 { margin: 0 0 12px; font-size: 16px; }
+    .modal-box label { font-size: 13px; color: #595959; margin-bottom: 6px; display: block; }
+    .modal-box textarea { width: 100%; padding: 8px 10px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 13px; resize: vertical; min-height: 72px; outline: none; font-family: inherit; }
+    .modal-box textarea:focus { border-color: #1677FF; }
+    .modal-box input { width: 100%; padding: 7px 10px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 13px; outline: none; }
+    .modal-box input:focus { border-color: #1677FF; }
+    .form-item { margin-bottom: 14px; }
+    .modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+    .modal-btns button { padding: 7px 18px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn-modal-cancel { background: #fff; border: 1px solid #d9d9d9; color: #595959; }
+    .btn-modal-confirm { background: #1677FF; color: #fff; border: none; }
+    .btn-modal-danger { background: #F5222D; color: #fff; border: none; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; padding: 60px;
+      color: #8C8C8C; }
+    .empty-state .empty-icon { font-size: 52px; margin-bottom: 12px; }
+    /* Tooltip */
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+    .sim-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
+      font-size: 14px; z-index: 99999; opacity: 0; transition: all 0.3s; }
+    .sim-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="pc-app">
+    <aside class="pc-sidenav">
+      <div class="pc-sidenav-brand">一网统飞</div>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">指挥中心</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">空域服务</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">航线管理</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">任务调度</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">直播中心</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">成果管理</span>
+      <a class="pc-sidenav-item" href="workorder_list.html">工单管理</a>
+      <a class="pc-sidenav-item active" href="demand_pool.html">需求池</a>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">资产管理</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">算法管理</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">用户管理</span>
+    </aside>
+    <div class="pc-frame">
+      <header class="pc-topbar">
+        <div class="pc-topbar-weather">
+          <span>🌡 仿真 22°C</span>
+          <span>风 微风</span>
+          <span class="pc-w-extra">湿度 65%</span>
+          <span class="pc-w-extra">能见度 良好</span>
+        </div>
+        <div class="pc-topbar-center">东莞市一网统飞服务平台</div>
+        <div class="pc-topbar-right">
+          <span class="pc-btn-screen" title="本期未接入">态势大屏</span>
+          <span class="pc-clock" id="pc-clock"></span>
+          <span class="pc-user-dot" aria-hidden="true"></span>
+          <div class="header-actions">
+            <div data-field>
+              <span id="header-user">运营人员</span>
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">headerUser</span></div>
+                <div><span class="ft-key">类型</span>String</div>
+                <div><span class="ft-key">来源</span>SIM.session.user + role</div>
+                <div><span class="ft-key">说明</span>顶栏当前登录用户摘要（仿真会话）</div>
+              </div>
+            </div>
+            <span class="header-sep">|</span>
+            <div data-field>
+              <button type="button" class="header-logout" onclick="SIM.logout()">退出登录</button>
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">logout</span></div>
+                <div><span class="ft-key">类型</span>Action</div>
+                <div><span class="ft-key">来源</span>SIM.logout()</div>
+                <div><span class="ft-key">说明</span>清除本地会话并跳转 PC 登录页（仿真）</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+      <div class="pc-main-inner">
+    <!-- 主Tab REQ-003/HAZ-005 -->
+    <div class="main-tabs">
+      <div class="main-tab active" id="mtab-req" onclick="switchMainTab('req')">飞行需求申报</div>
+      <div class="main-tab" id="mtab-haz" onclick="switchMainTab('haz')">隐患上报</div>
+    </div>
+
+    <div class="pool-content">
+      <div class="filter-bar" id="filter-bar"></div>
+      <div id="table-area" style="overflow-x:auto"></div>
+    </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="drawer-container"></div>
+  <div id="modal-container"></div>
+
+  <script>
+    SIM.bindPcHeaderUser();
+
+    const pcReadOnly = typeof SIM.isPcObserver === 'function' && SIM.isPcObserver();
+
+    let currentMainTab = 'req';
+
+    SIM.utils.toast = function(msg) {
+      const el = document.createElement('div'); el.className = 'sim-toast'; el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.classList.add('show'), 10);
+      setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2000);
+    };
+
+    function switchMainTab(tab) {
+      currentMainTab = tab;
+      document.getElementById('mtab-req').classList.toggle('active', tab === 'req');
+      document.getElementById('mtab-haz').classList.toggle('active', tab === 'haz');
+      renderFilterBar();
+      renderTable();
+    }
+
+    function renderFilterBar() {
+      const bar = document.getElementById('filter-bar');
+      if (currentMainTab === 'req') {
+        bar.innerHTML = `
+          <select id="f-status">
+            <option value="">全部状态</option>
+            <option value="SUBMITTED">已提交</option>
+            <option value="PROCESSING">处理中</option>
+            <option value="RESOLVED">已完成</option>
+            <option value="REJECTED">已驳回</option>
+          </select>
+          <select id="f-dept">
+            <option value="">全部单位</option>
+            ${SIM.data.depts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+          </select>
+          <input type="text" id="f-keyword" placeholder="搜索申报编号/站点名称" style="width:200px">
+          <button class="btn-query" onclick="renderTable()">查 询</button>`;
+        if (pcReadOnly) lockObserverDeptSelect('f-dept');
+      } else {
+        bar.innerHTML = `
+          <select id="f-haz-type">
+            <option value="">全部类型</option>
+            <option>路面损坏</option><option>水质异常</option><option>火情隐患</option>
+            <option>违规排放</option><option>管道渗漏</option><option>其他</option>
+          </select>
+          <select id="f-haz-status">
+            <option value="">全部状态</option>
+            <option value="ACTIVE">正常</option>
+            <option value="DELETED">已删除</option>
+          </select>
+          <select id="f-dept-haz">
+            <option value="">全部单位</option>
+            ${SIM.data.depts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+          </select>
+          <button class="btn-query" onclick="renderTable()">查 询</button>`;
+        if (pcReadOnly) lockObserverDeptSelect('f-dept-haz');
+      }
+    }
+
+    function lockObserverDeptSelect(id) {
+      const sid = typeof SIM.getScopeDeptId === 'function' ? SIM.getScopeDeptId() : null;
+      const sel = document.getElementById(id);
+      if (sel && sid) {
+        sel.value = sid;
+        sel.disabled = true;
+      }
+    }
+
+    function renderTable() {
+      if (currentMainTab === 'req') renderReqTable();
+      else renderHazTable();
+    }
+
+    // REQ-003: 需求申报池
+    function renderReqTable() {
+      const statusFilter = document.getElementById('f-status')?.value || '';
+      const deptFilter = document.getElementById('f-dept')?.value || '';
+      const keyword = document.getElementById('f-keyword')?.value.trim().toLowerCase() || '';
+      let reqs = [...SIM.data.requests];
+      const obsDept = pcReadOnly && typeof SIM.getScopeDeptId === 'function' ? SIM.getScopeDeptId() : null;
+      if (obsDept) reqs = reqs.filter(r => r.deptId === obsDept);
+      if (statusFilter) reqs = reqs.filter(r => r.status === statusFilter);
+      if (deptFilter) reqs = reqs.filter(r => r.deptId === deptFilter);
+      if (keyword) reqs = reqs.filter(r => r.id.toLowerCase().includes(keyword) || r.stationName.toLowerCase().includes(keyword));
+
+      const container = document.getElementById('table-area');
+      if (!reqs.length) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">📝</div><p>暂无申报记录</p></div>`;
+        return;
+      }
+
+      container.innerHTML = `<table class="data-table">
+        <thead>
+          <tr>
+            <th data-field>申报编号
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">id</span></div>
+                <div><span class="ft-key">类型</span>String</div><div><span class="ft-key">来源</span>系统生成 REQ-YYYY-MMDD-NNN</div>
+                <div><span class="ft-key">说明</span>申报唯一编号</div></div>
+            </th>
+            <th data-field>归属单位
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">dept_id → dept.name</span></div>
+                <div><span class="ft-key">类型</span>Ref→Dept</div><div><span class="ft-key">来源</span>表单提交</div>
+                <div><span class="ft-key">说明</span>归属单位</div></div>
+            </th>
+            <th>飞行区域</th>
+            <th>任务描述</th>
+            <th data-field>状态
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">status</span></div>
+                <div><span class="ft-key">类型</span>Enum SUBMITTED|PROCESSING|RESOLVED|REJECTED</div>
+                <div><span class="ft-key">来源</span>流转更新</div><div><span class="ft-key">说明</span>申报状态</div></div>
+            </th>
+            <th>申报时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${reqs.map(r => {
+            const sc = SIM.utils.getStatusColor(r.status);
+            const sb = SIM.utils.getStatusBg(r.status);
+            const sl = SIM.utils.getStatusLabel(r.status);
+            const ftNoOp = '<div class="ft"><div><span class="ft-key">说明</span>当前账号无此项操作权限（仿真）</div></div>';
+            const rowAccept = r.status === 'SUBMITTED'
+              ? (pcReadOnly
+                ? `<div class="action-link action-link--disabled" style="margin-left:10px" data-field>受理${ftNoOp}</div>`
+                : `<span class="action-link" style="margin-left:10px" onclick="doAccept('${r.id}')">受理</span>`)
+              : '';
+            const rowResolve = r.status === 'PROCESSING'
+              ? (pcReadOnly
+                ? `<div class="action-link action-link--disabled" style="margin-left:10px" data-field>标记完成${ftNoOp}</div>`
+                : `<span class="action-link" style="margin-left:10px" onclick="openResolveDlg('${r.id}')">标记完成</span>`)
+              : '';
+            const rowReject = (r.status === 'SUBMITTED' || r.status === 'PROCESSING')
+              ? (pcReadOnly
+                ? `<div class="action-link danger action-link--disabled" data-field style="margin-left:10px">驳回${ftNoOp}</div>`
+                : `<span class="action-link danger" onclick="openRejectDlg('${r.id}')">驳回</span>`)
+              : '';
+            return `<tr>
+              <td><span style="font-size:12px;color:#8C8C8C">${r.id}</span></td>
+              <td>${r.dept}</td>
+              <td>${r.stationName}</td>
+              <td><span class="text-truncate" title="${r.taskDesc}">${r.taskDesc}</span></td>
+              <td><span class="status-tag" style="color:${sc};background:${sb}">${sl}</span></td>
+              <td style="white-space:nowrap">${r.createdAt}</td>
+              <td>
+                <span class="action-link" onclick="openReqDrawer('${r.id}')">查看</span>
+                ${rowAccept}${rowResolve}${rowReject}
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+    }
+
+    // HAZ-005: 隐患上报池
+    function renderHazTable() {
+      const typeFilter = document.getElementById('f-haz-type')?.value || '';
+      const statusFilter = document.getElementById('f-haz-status')?.value || '';
+      const deptFilter = document.getElementById('f-dept-haz')?.value || '';
+      let hazards = [...SIM.data.hazards];
+      const obsDeptH = pcReadOnly && typeof SIM.getScopeDeptId === 'function' ? SIM.getScopeDeptId() : null;
+      if (obsDeptH) hazards = hazards.filter(h => h.deptId === obsDeptH);
+      if (typeFilter) hazards = hazards.filter(h => h.type === typeFilter);
+      if (statusFilter) hazards = hazards.filter(h => h.status === statusFilter);
+      if (deptFilter) hazards = hazards.filter(h => h.deptId === deptFilter);
+
+      const container = document.getElementById('table-area');
+      if (!hazards.length) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>暂无隐患记录</p></div>`;
+        return;
+      }
+
+      container.innerHTML = `<table class="data-table">
+        <thead>
+          <tr>
+            <th data-field>隐患编号
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">id</span></div>
+                <div><span class="ft-key">类型</span>String</div><div><span class="ft-key">来源</span>系统生成 HAZ-YYYY-MMDD-NNN</div>
+                <div><span class="ft-key">说明</span>隐患唯一编号</div></div>
+            </th>
+            <th>归属单位</th>
+            <th data-field>隐患类型
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">type</span></div>
+                <div><span class="ft-key">类型</span>Enum</div><div><span class="ft-key">来源</span>表单提交</div>
+                <div><span class="ft-key">说明</span>隐患类型</div></div>
+            </th>
+            <th>上报人</th>
+            <th>隐患描述</th>
+            <th data-field>状态
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">status</span></div>
+                <div><span class="ft-key">类型</span>Enum ACTIVE|DELETED</div><div><span class="ft-key">来源</span>系统/操作</div>
+                <div><span class="ft-key">说明</span>隐患状态</div></div>
+            </th>
+            <th>上报时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${hazards.map(h => {
+            const isDeleted = h.status === 'DELETED';
+            const sc = isDeleted ? '#8C8C8C' : '#52C41A';
+            const sb = isDeleted ? '#F5F5F5' : '#F6FFED';
+            return `<tr style="opacity:${isDeleted ? 0.6 : 1}">
+              <td><span style="font-size:12px;color:#8C8C8C">${h.id}</span></td>
+              <td>${h.dept}</td>
+              <td><span style="background:#FFF7E6;color:#FA8C16;padding:2px 8px;border-radius:4px;font-size:11px">${h.type}</span></td>
+              <td>${h.reporterName}</td>
+              <td><span class="text-truncate" title="${h.description || ''}">${h.description || '—'}</span></td>
+              <td><span class="status-tag" style="color:${sc};background:${sb}">${isDeleted ? '已删除' : '正常'}</span></td>
+              <td style="white-space:nowrap">${h.createdAt}</td>
+              <td>
+                <span class="action-link" onclick="openHazDrawer('${h.id}')">查看</span>
+                ${!isDeleted ? (pcReadOnly
+                  ? `<div class="action-link danger action-link--disabled" data-field>删除<div class="ft"><div><span class="ft-key">说明</span>当前账号无此项操作权限（仿真）</div></div></div>`
+                  : `<span class="action-link danger" onclick="confirmDeleteHaz('${h.id}')">删除</span>`) : ''}
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+    }
+
+    // 需求申报详情抽屉
+    function openReqDrawer(id) {
+      const r = SIM.utils.getRequestById(id);
+      if (!r) return;
+      const sc = SIM.utils.getStatusColor(r.status);
+      const sb = SIM.utils.getStatusBg(r.status);
+      const sl = SIM.utils.getStatusLabel(r.status);
+      document.getElementById('drawer-container').innerHTML = `
+        <div class="drawer-overlay">
+          <div class="drawer-bg" onclick="closeDrawer()"></div>
+          <div class="drawer">
+            <div class="drawer-header">
+              <span class="drawer-title">申报详情</span>
+              <button class="drawer-close" onclick="closeDrawer()">×</button>
+            </div>
+            <div class="drawer-body">
+              <div class="drawer-section">
+                <div class="drawer-section-title">基础信息</div>
+                <div class="drawer-field"><span class="drawer-label">申报编号</span><span class="drawer-value">${r.id}</span></div>
+                <div class="drawer-field"><span class="drawer-label">归属单位</span><span class="drawer-value">${r.dept}</span></div>
+                <div class="drawer-field"><span class="drawer-label">申报人</span><span class="drawer-value">${r.applicantName}</span></div>
+                <div class="drawer-field"><span class="drawer-label">飞行区域</span><span class="drawer-value">${r.stationName}</span></div>
+                <div class="drawer-field"><span class="drawer-label">申报时间</span><span class="drawer-value">${r.createdAt}</span></div>
+                <div class="drawer-field"><span class="drawer-label">当前状态</span>
+                  <span class="drawer-value"><span class="status-tag" style="color:${sc};background:${sb}">${sl}</span>
+                  ${r.acceptedAt ? `<span style="color:#8C8C8C;font-size:12px;margin-left:8px">受理于 ${r.acceptedAt}</span>` : ''}</span>
+                </div>
+              </div>
+              <div class="drawer-section">
+                <div class="drawer-section-title">申报内容</div>
+                <div class="drawer-field"><span class="drawer-label">任务描述</span><span class="drawer-value">${r.taskDesc}</span></div>
+                <div class="drawer-field"><span class="drawer-label">任务时间</span><span class="drawer-value">${r.timeDesc}</span></div>
+                <div class="drawer-field"><span class="drawer-label">成果要求</span><span class="drawer-value">${r.deliverableDesc}</span></div>
+              </div>
+              ${r.resolvedDesc ? `<div class="drawer-section">
+                <div class="drawer-section-title" style="color:#52C41A">处理结果</div>
+                <div class="drawer-field"><span class="drawer-label">关联任务</span><span class="drawer-value">${r.linkedTaskId || '—'}</span></div>
+                <div class="drawer-field"><span class="drawer-label">完成说明</span><span class="drawer-value">${r.resolvedDesc}</span></div>
+                <div class="drawer-field"><span class="drawer-label">完成时间</span><span class="drawer-value">${r.resolvedAt}</span></div>
+              </div>` : ''}
+              ${r.rejectNote ? `<div class="drawer-section">
+                <div class="drawer-section-title" style="color:#F5222D">驳回原因</div>
+                <div class="drawer-value">${r.rejectNote}</div>
+              </div>` : ''}
+            </div>
+            <div class="drawer-actions">
+              ${r.status === 'SUBMITTED' ? (pcReadOnly
+                ? `<div data-field style="display:inline-block"><button type="button" class="btn-primary" disabled>受理申请</button><div class="ft"><div><span class="ft-key">说明</span>当前账号无此项操作权限（仿真）</div></div></div>`
+                : `<button type="button" class="btn-primary" onclick="doAccept('${r.id}')">受理申请</button>`) : ''}
+              ${r.status === 'PROCESSING' ? (pcReadOnly
+                ? `<div data-field style="display:inline-block"><button type="button" class="btn-primary" disabled>标记完成</button><div class="ft"><div><span class="ft-key">说明</span>当前账号无此项操作权限（仿真）</div></div></div>`
+                : `<button type="button" class="btn-primary" onclick="openResolveDlg('${r.id}')">标记完成</button>`) : ''}
+              ${(r.status === 'SUBMITTED' || r.status === 'PROCESSING') ? (pcReadOnly
+                ? `<div data-field style="display:inline-block"><button type="button" class="btn-danger" disabled>驳回</button><div class="ft"><div><span class="ft-key">说明</span>当前账号无此项操作权限（仿真）</div></div></div>`
+                : `<button type="button" class="btn-danger" onclick="openRejectDlg('${r.id}')">驳回</button>`) : ''}
+              <button type="button" class="btn-default" onclick="closeDrawer()">关闭</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function openHazDrawer(id) {
+      const h = SIM.utils.getHazardById(id);
+      if (!h) return;
+      const isDeleted = h.status === 'DELETED';
+      document.getElementById('drawer-container').innerHTML = `
+        <div class="drawer-overlay">
+          <div class="drawer-bg" onclick="closeDrawer()"></div>
+          <div class="drawer">
+            <div class="drawer-header">
+              <span class="drawer-title">隐患详情</span>
+              <button class="drawer-close" onclick="closeDrawer()">×</button>
+            </div>
+            <div class="drawer-body">
+              <div class="drawer-section">
+                <div class="drawer-section-title">基础信息</div>
+                <div class="drawer-field"><span class="drawer-label">隐患编号</span><span class="drawer-value">${h.id}</span></div>
+                <div class="drawer-field"><span class="drawer-label">归属单位</span><span class="drawer-value">${h.dept}</span></div>
+                <div class="drawer-field"><span class="drawer-label">隐患类型</span><span class="drawer-value">${h.type}</span></div>
+                <div class="drawer-field"><span class="drawer-label">上报人</span><span class="drawer-value">${h.reporterName}</span></div>
+                <div class="drawer-field"><span class="drawer-label">上报时间</span><span class="drawer-value">${h.createdAt}</span></div>
+                <div class="drawer-field"><span class="drawer-label">GPS坐标</span>
+                  <span class="drawer-value">${h.gpsLat ? `${h.gpsLat.toFixed(4)}, ${h.gpsLng.toFixed(4)}` : '未获取'}</span>
+                </div>
+                <div class="drawer-field"><span class="drawer-label">状态</span>
+                  <span class="drawer-value"><span class="status-tag" style="color:${isDeleted ? '#8C8C8C' : '#52C41A'};background:${isDeleted ? '#F5F5F5' : '#F6FFED'}">${isDeleted ? '已删除' : '正常'}</span>
+                  ${isDeleted ? `<span style="color:#8C8C8C;font-size:12px;margin-left:8px">删除于 ${h.deletedAt}</span>` : ''}
+                  </span>
+                </div>
+              </div>
+              ${h.description ? `<div class="drawer-section">
+                <div class="drawer-section-title">隐患描述</div>
+                <div class="drawer-value">${h.description}</div>
+              </div>` : ''}
+              <div class="drawer-section">
+                <div class="drawer-section-title">现场照片 (${h.photos.length}张)</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  ${h.photos.map(() => `<div style="width:72px;height:72px;border-radius:6px;background:linear-gradient(135deg,#e0f0ff,#bae0ff);display:flex;align-items:center;justify-content:center;font-size:28px">📷</div>`).join('')}
+                  ${!h.photos.length ? '<span style="color:#8C8C8C;font-size:13px">暂无照片</span>' : ''}
+                </div>
+              </div>
+              ${h.note ? `<div class="drawer-section">
+                <div class="drawer-section-title">备注</div>
+                <div class="drawer-value">${h.note}</div>
+              </div>` : ''}
+            </div>
+            <div class="drawer-actions">
+              ${!isDeleted ? (pcReadOnly
+                ? `<div data-field style="display:inline-block"><button type="button" class="btn-danger" disabled>删除</button><div class="ft"><div><span class="ft-key">说明</span>当前账号无此项操作权限（仿真）</div></div></div>`
+                : `<button type="button" class="btn-danger" onclick="confirmDeleteHaz('${h.id}')">删除</button>`) : ''}
+              <button type="button" class="btn-default" onclick="closeDrawer()">关闭</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function closeDrawer() {
+      document.getElementById('drawer-container').innerHTML = '';
+    }
+
+    // 受理 REQ-003
+    function doAccept(id) {
+      if (pcReadOnly) return;
+      const r = SIM.data.requests.find(r => r.id === id);
+      if (!r) return;
+      r.status = 'PROCESSING';
+      r.acceptedAt = new Date().toISOString().slice(0,16).replace('T',' ');
+      closeDrawer();
+      SIM.utils.toast('已受理，申报进入处理中');
+      renderTable();
+    }
+
+    // 标记完成弹窗
+    function openResolveDlg(id) {
+      if (pcReadOnly) return;
+      closeDrawer();
+      document.getElementById('modal-container').innerHTML = `
+        <div class="modal-overlay">
+          <div class="modal-box">
+            <h3>标记申报完成</h3>
+            <div class="form-item">
+              <label>关联任务ID（选填）</label>
+              <input type="text" id="inp-task-id" placeholder="如 T001">
+            </div>
+            <div class="form-item">
+              <label>完成说明（选填）</label>
+              <textarea id="inp-resolved-desc" placeholder="说明处理结果" rows="3"></textarea>
+            </div>
+            <div class="modal-btns">
+              <button class="btn-modal-cancel" onclick="closeModal()">取消</button>
+              <button class="btn-modal-confirm" onclick="confirmResolve('${id}')">确认完成</button>
+            </div>
+          </div>
+        </div>`;
+    }
+    function confirmResolve(id) {
+      const r = SIM.data.requests.find(r => r.id === id);
+      if (!r) return;
+      r.status = 'RESOLVED';
+      r.linkedTaskId = document.getElementById('inp-task-id').value || null;
+      r.resolvedDesc = document.getElementById('inp-resolved-desc').value || null;
+      r.resolvedAt = new Date().toISOString().slice(0,16).replace('T',' ');
+      closeModal();
+      SIM.utils.toast('已标记为完成');
+      renderTable();
+    }
+
+    // 驳回弹窗
+    function openRejectDlg(id) {
+      if (pcReadOnly) return;
+      closeDrawer();
+      document.getElementById('modal-container').innerHTML = `
+        <div class="modal-overlay">
+          <div class="modal-box">
+            <h3>驳回申报</h3>
+            <div class="form-item">
+              <label>驳回原因（选填）</label>
+              <textarea id="inp-reject-note" placeholder="说明驳回原因（选填）" rows="3"></textarea>
+            </div>
+            <div class="modal-btns">
+              <button class="btn-modal-cancel" onclick="closeModal()">取消</button>
+              <button class="btn-modal-danger" onclick="confirmReject('${id}')">确认驳回</button>
+            </div>
+          </div>
+        </div>`;
+    }
+    function confirmReject(id) {
+      const r = SIM.data.requests.find(r => r.id === id);
+      if (!r) return;
+      r.status = 'REJECTED';
+      r.rejectNote = document.getElementById('inp-reject-note').value || null;
+      r.rejectedAt = new Date().toISOString().slice(0,16).replace('T',' ');
+      closeModal();
+      SIM.utils.toast('已驳回');
+      renderTable();
+    }
+
+    // 删除隐患 HAZ-005
+    function confirmDeleteHaz(id) {
+      if (pcReadOnly) return;
+      closeDrawer();
+      document.getElementById('modal-container').innerHTML = `
+        <div class="modal-overlay">
+          <div class="modal-box">
+            <h3>确认删除隐患？</h3>
+            <p style="color:#8C8C8C;font-size:14px;margin:0 0 20px">删除后数据保留并标记为已删除，操作不可逆。</p>
+            <div class="modal-btns">
+              <button class="btn-modal-cancel" onclick="closeModal()">取消</button>
+              <button class="btn-modal-danger" onclick="doDeleteHaz('${id}')">确认删除</button>
+            </div>
+          </div>
+        </div>`;
+    }
+    function doDeleteHaz(id) {
+      const h = SIM.data.hazards.find(h => h.id === id);
+      if (h) { h.status = 'DELETED'; h.deletedAt = new Date().toISOString().slice(0,16).replace('T',' '); }
+      closeModal();
+      SIM.utils.toast('已删除');
+      renderTable();
+    }
+
+    function closeModal() {
+      document.getElementById('modal-container').innerHTML = '';
+    }
+
+    // 初始化
+    renderFilterBar();
+    renderTable();
+    SIM.createPanel({});
+  </script>
+</body>
+</html>

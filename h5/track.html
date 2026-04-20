@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 航迹详情</title>
+  <script src="../js/common.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #F0F0F0; min-height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: #F5F5F5; color: #262626; max-width: 390px; margin: 0 auto; min-height: 100vh;
+      display: flex; flex-direction: column;
+    }
+    .top-bar {
+      background: #fff; border-bottom: 1px solid #F0F0F0; display: flex; align-items: center;
+      padding: 0 16px; height: 48px; flex-shrink: 0;
+    }
+    .back-btn { background: none; border: none; font-size: 24px; color: #262626; cursor: pointer; padding: 0; width: 32px; }
+    .top-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; color: #262626; }
+    .map-container {
+      flex: 1; min-height: 0; display: flex; flex-direction: column;
+      padding: 8px 8px 0;
+    }
+    .map-pane {
+      position: relative; flex: 1; min-height: 420px; overflow: hidden;
+      background: #0b1525; border-radius: 8px;
+    }
+    #map { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .fallback-map {
+      position: absolute; inset: 0; display: none;
+      background: radial-gradient(ellipse at center, #133761 0%, #0b1525 85%);
+    }
+    .fallback-map.show { display: block; }
+    .fallback-grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: 0.22;
+    }
+    .fallback-svg {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+    }
+    .mapboxgl-ctrl-logo,
+    .mapboxgl-ctrl-attrib,
+    .mapboxgl-ctrl.mapboxgl-ctrl-attrib {
+      display: none !important;
+    }
+    .map-error {
+      position: absolute; left: 12px; right: 12px; top: 12px; z-index: 25;
+      background: rgba(245,34,45,0.9); color: #fff; border-radius: 8px; padding: 8px 10px;
+      font-size: 12px; display: none;
+    }
+    .legend-card {
+      background: #fff; border-radius: 8px; border: 1px solid #F0F0F0;
+      padding: 12px 16px; margin: 8px; flex-shrink: 0;
+    }
+    .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .legend-line { width: 32px; height: 3px; border-radius: 2px; }
+    .legend-label { font-size: 13px; color: #595959; }
+    .flight-info { border-top: 1px solid #F0F0F0; padding-top: 10px; margin-top: 6px; }
+    .fi-id { font-size: 13px; font-weight: 600; color: #262626; }
+    .fi-task { font-size: 12px; color: #8C8C8C; margin-top: 2px; }
+    .progress-wrap { margin-top: 10px; border-top: 1px solid #F0F0F0; padding-top: 10px; }
+    .progress-head { display: flex; justify-content: space-between; font-size: 12px; color: #595959; margin-bottom: 6px; }
+    .progress-slider { width: 100%; accent-color: #1677FF; cursor: default; opacity: 1; }
+    .head-dot {
+      width: 14px; height: 14px; border-radius: 50%; border: 2px solid #ff7875;
+      background: #ff4d4f; box-shadow: 0 0 10px rgba(255,77,79,0.6);
+      animation: blinkHead 2s linear infinite;
+    }
+    @keyframes blinkHead {
+      0%, 42% { opacity: 1; transform: scale(1); }
+      50%, 92% { opacity: 0.25; transform: scale(0.84); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    /* 仅对本页图例Tooltip做强约束，避免被common.js全局.ft覆盖后向下弹出遮挡内容 */
+    .legend-card .ft {
+      display: none;
+      position: absolute;
+      left: 0;
+      top: auto !important;
+      bottom: calc(100% + 6px) !important;
+      z-index: 9999;
+      background: #1a1a1a !important;
+      color: #eee !important;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.8;
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      min-width: 200px;
+    }
+    .legend-card .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .legend-card .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+  </style>
+</head>
+<body>
+  <script>SIM.guardExecutorNoTaskMonitorPages();</script>
+  <div class="top-bar">
+    <button class="back-btn" onclick="SIM.nav.back()">‹</button>
+    <div class="top-title">航迹详情</div>
+    <div style="width:32px"></div>
+  </div>
+  <div class="map-container">
+    <div class="map-pane">
+      <div id="map"></div>
+      <div class="fallback-map" id="fallback-map">
+        <div class="fallback-grid"></div>
+        <svg class="fallback-svg" viewBox="0 0 390 420" id="fallback-svg"></svg>
+      </div>
+      <div class="map-error" id="map-error">地图加载失败，请检查网络后重试。</div>
+    </div>
+  </div>
+
+  <div class="legend-card">
+    <div class="legend-row" data-field>
+      <div class="legend-line" style="background:#1677FF;border-top:1px dashed #1677FF"></div>
+      <span class="legend-label">规划航线</span>
+      <div class="ft">
+        <div><span class="ft-key">字段名</span><span class="ft-mono">planned_route</span></div>
+        <div><span class="ft-key">类型</span>GeoJSON|null</div>
+        <div><span class="ft-key">来源</span>任务配置继承</div>
+        <div><span class="ft-key">说明</span>规划飞行航线</div>
+      </div>
+    </div>
+    <div class="legend-row" id="actual-legend" data-field>
+      <div class="legend-line" style="background:#F5222D"></div>
+      <span class="legend-label" id="actual-label">实时轨迹</span>
+      <span class="head-dot" id="legend-dot"></span>
+      <div class="ft">
+        <div><span class="ft-key">字段名</span><span class="ft-mono">actual_route/progress</span></div>
+        <div><span class="ft-key">类型</span>GeoJSON + Int</div>
+        <div><span class="ft-key">来源</span>GPS实时记录 / 系统进度</div>
+        <div><span class="ft-key">说明</span>按进度覆盖规划航线，头部2秒闪烁</div>
+      </div>
+    </div>
+    <div class="flight-info">
+      <div class="fi-id" id="fi-id">—</div>
+      <div class="fi-task" id="fi-task">—</div>
+    </div>
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-head">
+        <span>实时轨迹进度</span>
+        <span id="progress-txt">0%</span>
+      </div>
+      <input type="range" min="0" max="100" step="1" class="progress-slider" id="progress-slider">
+    </div>
+  </div>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const flightId = params.get('id');
+    const flight = SIM.utils.getFlightById(flightId) || SIM.data.flights[0];
+    const isPending = flight.status === 'PENDING';
+    const isFlying = flight.status === 'IN_PROGRESS';
+    const isCompleted = flight.status === 'COMPLETED';
+
+    document.getElementById('fi-id').textContent = flight.id;
+    document.getElementById('fi-task').textContent = flight.taskName;
+
+    function getDefaultProgress() {
+      if (isPending) return 0;
+      if (isCompleted) return 100;
+      return Math.max(0, Math.min(100, flight.progress || 0));
+    }
+
+    let currentProgress = getDefaultProgress();
+    const slider = document.getElementById('progress-slider');
+    const progressTxt = document.getElementById('progress-txt');
+    slider.value = String(currentProgress);
+    progressTxt.textContent = `${currentProgress}%`;
+    // 进度条保持激活视觉，但交互只读（禁止鼠标/触摸/键盘拖动）
+    slider.setAttribute('aria-readonly', 'true');
+    slider.addEventListener('pointerdown', (e) => e.preventDefault());
+    slider.addEventListener('keydown', (e) => {
+      const lockKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
+      if (lockKeys.includes(e.key)) e.preventDefault();
+    });
+
+    if (isPending) {
+      document.getElementById('actual-legend').style.opacity = '0.3';
+      document.getElementById('actual-label').textContent = '实时轨迹（尚未飞行）';
+      document.getElementById('legend-dot').style.display = 'none';
+    }
+
+    function buildCoveredCoords(coords, ratio) {
+      if (!coords || coords.length < 2 || ratio <= 0) return [];
+      if (ratio >= 1) return [...coords];
+      const segLens = [];
+      let totalLen = 0;
+      for (let i = 1; i < coords.length; i++) {
+        const dx = coords[i][0] - coords[i - 1][0];
+        const dy = coords[i][1] - coords[i - 1][1];
+        const len = Math.hypot(dx, dy);
+        segLens.push(len);
+        totalLen += len;
+      }
+      const targetLen = totalLen * ratio;
+      let accLen = 0;
+      const covered = [coords[0]];
+      for (let i = 1; i < coords.length; i++) {
+        const len = segLens[i - 1];
+        if (accLen + len < targetLen) {
+          covered.push(coords[i]);
+          accLen += len;
+          continue;
+        }
+        const remain = targetLen - accLen;
+        const t = len === 0 ? 0 : remain / len;
+        const x = coords[i - 1][0] + (coords[i][0] - coords[i - 1][0]) * t;
+        const y = coords[i - 1][1] + (coords[i][1] - coords[i - 1][1]) * t;
+        covered.push([x, y]);
+        break;
+      }
+      return covered;
+    }
+
+    function getHeadPoint(coords) {
+      if (!coords || !coords.length) return null;
+      return coords[coords.length - 1];
+    }
+
+    function buildPlannedRoute() {
+      const planned = Array.isArray(flight.plannedRoute) ? flight.plannedRoute : [];
+      if (planned.length >= 2) return planned;
+      const start = planned[0] || [114.246, 22.723];
+      return [
+        start,
+        [start[0] + 0.0045, start[1] + 0.0035],
+        [start[0] + 0.0085, start[1] + 0.0012],
+        [start[0] + 0.012, start[1] + 0.0048]
+      ];
+    }
+
+    function drawFallbackTrack() {
+      const svg = document.getElementById('fallback-svg');
+      const W = 390, H = 420;
+      const planned = buildPlannedRoute();
+      if (!planned.length) {
+        svg.innerHTML = '';
+        return;
+      }
+
+      const lngs = planned.map(p => p[0]);
+      const lats = planned.map(p => p[1]);
+      const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+      const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+      const padX = 34, padY = 50;
+      const spanLng = Math.max(0.0001, maxLng - minLng);
+      const spanLat = Math.max(0.0001, maxLat - minLat);
+      const toSVG = ([lng, lat]) => [
+        padX + ((lng - minLng) / spanLng) * (W - padX * 2),
+        H - (padY + ((lat - minLat) / spanLat) * (H - padY * 2))
+      ];
+
+      const plannedPts = planned.map(toSVG);
+      const coveredPts = buildCoveredCoords(plannedPts, currentProgress / 100);
+      const [sx, sy] = plannedPts[0];
+      const [ex, ey] = plannedPts[plannedPts.length - 1];
+
+      let coveredPath = '';
+      if (!isPending && coveredPts.length >= 2) {
+        coveredPath = `<polyline points="${coveredPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#F5222D" stroke-width="3.6" opacity="0.95"/>`;
+        const [hx, hy] = coveredPts[coveredPts.length - 1];
+        coveredPath += `<circle class="blink-head" cx="${hx}" cy="${hy}" r="6" fill="#F5222D" />
+          <circle class="blink-head" cx="${hx}" cy="${hy}" r="11" fill="none" stroke="#ff7875" stroke-width="1.8"/>`;
+      }
+
+      svg.innerHTML = `
+        <polyline points="${plannedPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#1677FF" stroke-width="3.3" stroke-dasharray="7,4" opacity="0.95"/>
+        ${coveredPath}
+        <circle cx="${sx}" cy="${sy}" r="5" fill="#69b1ff"/>
+        <circle cx="${ex}" cy="${ey}" r="5" fill="#69b1ff"/>
+        <text x="${sx+8}" y="${sy-6}" font-size="10" fill="#b7e3ff">起点</text>
+        <text x="${ex+8}" y="${ey-6}" font-size="10" fill="#b7e3ff">终点</text>
+      `;
+    }
+
+    function switchToFallback(message) {
+      document.getElementById('map').style.display = 'none';
+      document.getElementById('fallback-map').classList.add('show');
+      document.getElementById('map-error').textContent = message || 'Mapbox不可用，已切换为本地仿真地图。';
+      document.getElementById('map-error').style.display = 'block';
+      drawFallbackTrack();
+    }
+
+    function setupMap() {
+      if (!window.mapboxgl) {
+        switchToFallback('Mapbox脚本加载失败，已切换为本地仿真地图。');
+        return;
+      }
+
+      // 豁免后接入Mapbox交互示意
+      mapboxgl.accessToken = 'MAPBOX_TOKEN_PLACEHOLDER';
+      const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: flight.plannedRoute?.[0] || [114.246, 22.723],
+        zoom: 13,
+        pitch: 50,
+        bearing: -18,
+        antialias: true
+      });
+
+      map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: true }), 'bottom-right');
+      let loaded = false;
+      const loadGuard = setTimeout(() => {
+        if (!loaded) switchToFallback('Mapbox地图超时未加载，已切换为本地仿真地图。');
+      }, 8000);
+
+      map.on('error', (evt) => {
+        const msg = String((evt && evt.error && evt.error.message) || '');
+        if (/Unauthorized|Forbidden|401|403|token|access token|style/i.test(msg)) {
+          clearTimeout(loadGuard);
+          switchToFallback('Mapbox鉴权失败，已切换为本地仿真地图。');
+        }
+      });
+
+      map.on('load', () => {
+        loaded = true;
+        clearTimeout(loadGuard);
+        const planned = buildPlannedRoute();
+        const covered = buildCoveredCoords(planned, currentProgress / 100);
+        const head = getHeadPoint(covered);
+
+        map.addSource('planned-route', {
+          type: 'geojson',
+          data: { type: 'Feature', geometry: { type: 'LineString', coordinates: planned } }
+        });
+        map.addSource('covered-route', {
+          type: 'geojson',
+          data: { type: 'Feature', geometry: { type: 'LineString', coordinates: covered } }
+        });
+        map.addSource('head-point', {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection',
+            features: head ? [{ type: 'Feature', geometry: { type: 'Point', coordinates: head } }] : []
+          }
+        });
+        map.addLayer({
+          id: 'planned-line',
+          type: 'line',
+          source: 'planned-route',
+          paint: {
+            'line-color': '#1677FF',
+            'line-width': 4,
+            'line-opacity': 0.9,
+            'line-dasharray': [2, 2]
+          }
+        });
+
+        map.addLayer({
+          id: 'covered-line',
+          type: 'line',
+          source: 'covered-route',
+          paint: {
+            'line-color': '#F5222D',
+            'line-width': 4.5,
+            'line-opacity': 0.95
+          }
+        });
+        map.addLayer({
+          id: 'head-outer',
+          type: 'circle',
+          source: 'head-point',
+          paint: {
+            'circle-radius': 12,
+            'circle-color': 'rgba(245,34,45,0.15)',
+            'circle-stroke-color': '#ff7875',
+            'circle-stroke-width': 2
+          }
+        });
+
+        map.addLayer({
+          id: 'head-inner',
+          type: 'circle',
+          source: 'head-point',
+          paint: {
+            'circle-radius': 6,
+            'circle-color': '#F5222D'
+          }
+        });
+
+        const bounds = new mapboxgl.LngLatBounds();
+        (planned.length ? planned : [[114.246, 22.723]]).forEach(p => bounds.extend(p));
+        map.fitBounds(bounds, { padding: { top: 90, bottom: 100, left: 36, right: 36 }, duration: 800, maxZoom: 15 });
+
+        let blinkOn = true;
+        if (isFlying) {
+          setInterval(() => {
+            blinkOn = !blinkOn;
+            const opacity = blinkOn ? 1 : 0.25;
+            if (map.getLayer('head-inner')) map.setPaintProperty('head-inner', 'circle-opacity', opacity);
+            if (map.getLayer('head-outer')) map.setPaintProperty('head-outer', 'circle-opacity', opacity * 0.55);
+          }, 1000); // 2秒一轮（亮1秒+暗1秒）
+        }
+
+        function updateCoveredRoute(progress) {
+          const ratio = Math.max(0, Math.min(100, progress)) / 100;
+          const nextCovered = buildCoveredCoords(planned, ratio);
+          const nextHead = getHeadPoint(nextCovered);
+          map.getSource('covered-route').setData({
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates: nextCovered }
+          });
+          map.getSource('head-point').setData({
+            type: 'FeatureCollection',
+            features: nextHead ? [{ type: 'Feature', geometry: { type: 'Point', coordinates: nextHead } }] : []
+          });
+          progressTxt.textContent = `${progress}%`;
+        }
+
+        updateCoveredRoute(currentProgress);
+        // 进度由任务状态驱动，禁止前端手动调整
+      });
+    }
+
+    setupMap();
+    SIM.createPanel({});
+  </script>
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 我的</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      background: #F0F0F0;
+      min-height: 100%;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: #F5F5F5;
+      color: #262626; font-size: 14px;
+      max-width: 390px; margin: 0 auto; min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06); }
+    .top-bar { background: #fff; border-bottom: 1px solid #F0F0F0; padding: 14px 16px;
+      position: sticky; top: 0; z-index: 100; }
+    .top-title { font-size: 18px; font-weight: 700; color: #262626; }
+    .page-content {
+      background: #F5F5F5;
+      padding-bottom: 64px;
+    }
+    /* 用户信息卡片 */
+    .user-card { background: linear-gradient(135deg, #1677FF 0%, #0958d9 100%); padding: 20px 16px; }
+    .user-avatar { width: 56px; height: 56px; border-radius: 50%; background: rgba(255,255,255,0.2);
+      display: flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 10px; }
+    .user-name { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .user-meta { font-size: 13px; color: rgba(255,255,255,0.8); }
+    .user-role-badge { display: inline-block; background: rgba(255,255,255,0.2); color: #fff;
+      border-radius: 10px; padding: 2px 10px; font-size: 11px; margin-left: 8px; }
+    /* 菜单列表 */
+    .menu-section { background: #fff; border-radius: 8px; margin: 8px; overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .menu-item { display: flex; align-items: center; padding: 14px 16px; cursor: pointer;
+      border-bottom: 1px solid #F0F0F0; transition: background 0.15s; text-decoration: none; color: #262626; }
+    .menu-item:last-child { border-bottom: none; }
+    .menu-item:active { background: #F5F5F5; }
+    .menu-text { flex: 1; font-size: 15px; }
+    .menu-arrow { color: #BFBFBF; font-size: 18px; }
+    .logout-item { color: #F5222D; border-bottom: none; }
+    .logout-item .menu-text { color: #F5222D; }
+    /* 版本信息 */
+    .version-info { text-align: center; padding: 20px; font-size: 12px; color: #BFBFBF; }
+    /* Tooltip */
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+    /* Toast */
+    .sim-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
+      font-size: 14px; z-index: 99999; opacity: 0; transition: all 0.3s; }
+    .sim-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    /* Modal */
+    .sim-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9000;
+      display: flex; align-items: center; justify-content: center; }
+    .sim-modal { background: #fff; border-radius: 8px; padding: 24px 20px; width: 300px; max-width: 90vw; }
+    .sim-modal h3 { margin: 0 0 12px; font-size: 16px; }
+    .sim-modal p { margin: 0 0 20px; font-size: 14px; color: #8C8C8C; }
+    .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-btns button { padding: 6px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn-modal-cancel { background: #fff; border: 1px solid #d9d9d9; color: #595959; }
+    .btn-modal-danger { background: #F5222D; color: #fff; border: none; }
+    .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 390px; background: #fff; border-top: 1px solid #F0F0F0;
+      display: flex; z-index: 1000; }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 8px 0 6px; text-decoration: none; color: #8C8C8C; }
+    .nav-item.active { color: #1677FF; }
+    .nav-icon { font-size: 20px; line-height: 1; margin-bottom: 2px; }
+    .nav-label { font-size: 10px; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <div class="top-title">我的</div>
+  </div>
+
+  <div class="page-content">
+    <!-- 用户信息 -->
+    <div class="user-card">
+      <div class="user-avatar">👤</div>
+      <div class="user-name" id="user-name" data-field>张三
+        <div class="ft">
+          <div><span class="ft-key">字段名</span><span class="ft-mono">user.name</span></div>
+          <div><span class="ft-key">类型</span>String</div>
+          <div><span class="ft-key">来源</span>session → user.name</div>
+          <div><span class="ft-key">说明</span>当前登录用户姓名</div>
+        </div>
+      </div>
+      <div class="user-meta" id="user-meta">
+        <span id="user-role-text" data-field style="position:relative">交通局管理员
+          <div class="ft">
+            <div><span class="ft-key">字段名</span><span class="ft-mono">role</span></div>
+            <div><span class="ft-key">类型</span>Enum ADMIN|EXECUTOR</div>
+            <div><span class="ft-key">来源</span>session → role</div>
+            <div><span class="ft-key">说明</span>当前登录用户角色</div>
+          </div>
+        </span>
+        <span class="user-role-badge" id="user-dept" data-field style="position:relative">龙岗区交通局
+          <div class="ft">
+            <div><span class="ft-key">字段名</span><span class="ft-mono">user.dept</span></div>
+            <div><span class="ft-key">类型</span>String</div>
+            <div><span class="ft-key">来源</span>session → user.dept</div>
+            <div><span class="ft-key">说明</span>当前登录用户所属单位名称（示例：区交通局）</div>
+          </div>
+        </span>
+      </div>
+    </div>
+
+    <!-- 功能菜单 -->
+    <div class="menu-section" id="admin-menu" style="display:none">
+      <a class="menu-item" href="user_mgmt.html">
+        <span class="menu-text">用户管理</span>
+        <span class="menu-arrow">›</span>
+      </a>
+    </div>
+
+    <div class="menu-section">
+      <a class="menu-item" href="change_pwd.html">
+        <span class="menu-text">修改密码</span>
+        <span class="menu-arrow">›</span>
+      </a>
+      <a class="menu-item" href="change_phone.html">
+        <span class="menu-text">修改手机号</span>
+        <span class="menu-arrow">›</span>
+      </a>
+    </div>
+
+    <div class="menu-section">
+      <div class="menu-item logout-item" onclick="doLogout()">
+        <span class="menu-text">退出登录</span>
+      </div>
+    </div>
+
+    <div class="version-info">一网统飞 v1.0.0 · 仿真原型</div>
+  </div>
+
+  <div id="bottom-nav-mount"></div>
+
+  <script>
+    const session = JSON.parse(localStorage.getItem('ywsf_session') || 'null');
+    if (!session) window.location.replace('login.html');
+    else {
+      const el = document.getElementById('bottom-nav-mount');
+      if (el) el.outerHTML = SIM.renderBottomNav('mine');
+    }
+    const role = session ? session.role : 'ADMIN';
+    const user = session ? session.user : {};
+
+    document.getElementById('user-name').textContent = user.name || '—';
+    document.getElementById('user-role-text').textContent = role === 'ADMIN' ? '交通局管理员' : '交通局执行人员';
+    document.getElementById('user-dept').textContent = user.dept || '—';
+    if (role === 'ADMIN') document.getElementById('admin-menu').style.display = 'block';
+
+    function doLogout() {
+      const overlay = document.createElement('div');
+      overlay.className = 'sim-modal-overlay';
+      overlay.innerHTML = `<div class="sim-modal">
+        <h3>退出登录</h3>
+        <p>确认退出当前账号？</p>
+        <div class="modal-btns">
+          <button class="btn-modal-cancel" onclick="this.closest('.sim-modal-overlay').remove()">取消</button>
+          <button class="btn-modal-danger" onclick="confirmLogout()">确认退出</button>
+        </div>
+      </div>`;
+      document.body.appendChild(overlay);
+    }
+    function confirmLogout() {
+      localStorage.removeItem('ywsf_session');
+      window.location.replace('login.html');
+    }
+
+    SIM.createPanel({});
+  </script>
+</body>
+</html>

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 新增隐患上报</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #F0F0F0; min-height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: #F5F5F5; color: #262626; font-size: 14px; max-width: 390px; margin: 0 auto; min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06); }
+    .top-bar { background: #fff; border-bottom: 1px solid #F0F0F0; display: flex; align-items: center;
+      padding: 0 16px; height: 48px; position: sticky; top: 0; z-index: 100; }
+    .back-btn { background: none; border: none; font-size: 24px; cursor: pointer; padding: 0; width: 32px; }
+    .top-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; }
+    .page-content { padding: 12px; padding-bottom: 100px; }
+    .card { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .form-item { margin-bottom: 16px; }
+    .form-label { font-size: 13px; color: #595959; margin-bottom: 6px; }
+    .form-label.row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .required { color: #F5222D; }
+    select, textarea { width: 100%; padding: 9px 12px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 14px; color: #262626; outline: none; background: #fff; font-family: inherit; }
+    select:focus, textarea:focus { border-color: #1677FF; }
+    select.error, textarea.error { border-color: #F5222D; }
+    textarea { resize: vertical; min-height: 80px; }
+    .char-count { color: #BFBFBF; font-size: 12px; }
+    .err-msg { color: #F5222D; font-size: 12px; margin-top: 4px; display: none; }
+    /* 照片上传 */
+    .photo-upload-area { display: flex; flex-wrap: wrap; gap: 8px; }
+    .photo-thumb { width: 72px; height: 72px; border-radius: 6px; background: linear-gradient(135deg,#e0f0ff,#bae0ff);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 24px;
+      position: relative; cursor: pointer; }
+    .del-btn { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%;
+      background: rgba(0,0,0,0.5); color: #fff; border: none; cursor: pointer; font-size: 11px;
+      display: flex; align-items: center; justify-content: center; }
+    .add-photo { width: 72px; height: 72px; border: 1px dashed #D9D9D9; border-radius: 6px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; color: #8C8C8C; font-size: 11px; gap: 3px; }
+    .add-photo:hover { border-color: #1677FF; color: #1677FF; }
+    .add-photo .add-icon { font-size: 22px; }
+    .photo-preview-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: none;
+      align-items: center; justify-content: center; z-index: 10001; padding: 20px; }
+    .photo-preview-mask.show { display: flex; }
+    .photo-preview-box { width: min(320px, 100%); background: #fff; border-radius: 8px; overflow: hidden; }
+    .photo-preview-img { height: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(135deg,#cfe7ff,#91caff); color: #1d39c4; }
+    .photo-preview-icon { font-size: 72px; line-height: 1; }
+    .photo-preview-name { margin-top: 8px; font-size: 12px; color: #1f1f1f; padding: 0 10px; text-align: center; word-break: break-all; }
+    .photo-preview-actions { display: flex; justify-content: flex-end; padding: 10px 12px; border-top: 1px solid #F0F0F0; }
+    .preview-close-btn { border: none; background: #1677FF; color: #fff; border-radius: 4px; padding: 6px 14px; font-size: 13px; cursor: pointer; }
+    /* GPS */
+    .gps-row { display: flex; align-items: center; gap: 8px; }
+    .gps-value { flex: 1; font-size: 13px; color: #262626; padding: 9px 12px;
+      border: 1px solid #D9D9D9; border-radius: 4px; background: #FAFAFA; }
+    .gps-value.loading { color: #1677FF; }
+    .gps-value.error { color: #F5222D; }
+    .btn-gps { padding: 8px 12px; background: #E6F4FF; color: #1677FF; border: 1px solid #BAE0FF;
+      border-radius: 4px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+    /* 底部按钮 */
+    .bottom-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 390px; background: #fff; border-top: 1px solid #F0F0F0;
+      padding: 10px 16px; z-index: 1000; }
+    .btn-primary { width: 100%; padding: 12px; background: #1677FF; color: #fff; border: none;
+      border-radius: 4px; font-size: 15px; font-weight: 500; cursor: pointer; }
+    .btn-primary:disabled { background: #D9D9D9; color: #BFBFBF; cursor: not-allowed; }
+    .sim-toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
+      font-size: 14px; z-index: 99999; opacity: 0; transition: all 0.3s; }
+    .sim-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <button class="back-btn" onclick="SIM.nav.back()">‹</button>
+    <div class="top-title">新增隐患上报</div>
+    <div style="width:32px"></div>
+  </div>
+
+  <div class="page-content">
+    <div class="card">
+      <!-- 隐患类型 -->
+      <div class="form-item">
+        <div class="form-label">隐患类型 <span class="required">*</span></div>
+        <div data-field style="position:relative">
+          <select id="haz-type" style="width:100%;padding:9px 12px;border:1px solid #D9D9D9;border-radius:4px;font-size:14px;color:#262626;outline:none;background:#fff;font-family:inherit">
+            <option value="">请选择隐患类型</option>
+            <option>路面损坏</option>
+            <option>水质异常</option>
+            <option>火情隐患</option>
+            <option>违规排放</option>
+            <option>管道渗漏</option>
+            <option>其他</option>
+          </select>
+          <div class="ft">
+            <div><span class="ft-key">字段名</span><span class="ft-mono">type</span></div>
+            <div><span class="ft-key">类型</span>Enum</div>
+            <div><span class="ft-key">来源</span>表单提交，六选一，必填</div>
+            <div><span class="ft-key">说明</span>隐患类型</div>
+          </div>
+        </div>
+        <div class="err-msg" id="err-type">请选择隐患类型</div>
+      </div>
+
+      <!-- 现场照片 -->
+      <div class="form-item">
+        <div class="form-label row">
+          <span>现场照片 <span class="required">*</span></span>
+          <span class="char-count" id="photo-count">0张已添加</span>
+        </div>
+        <div class="photo-upload-area" id="photo-area">
+          <div class="add-photo" onclick="addPhoto()">
+            <span class="add-icon">📷</span>
+            <span>拍照/相册</span>
+          </div>
+        </div>
+        <div class="err-msg" id="err-photo">请至少上传1张现场照片</div>
+      </div>
+
+      <!-- GPS位置 -->
+      <div class="form-item">
+        <div class="form-label row">
+          <span>当前位置</span>
+          <span style="font-size:11px;color:#8C8C8C">（GPS自动获取，未授权时允许继续提交）</span>
+        </div>
+        <div class="gps-row">
+          <div class="gps-value" id="gps-display" data-field>
+            <span id="gps-text">未获取</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">gps_lat / gps_lng</span></div>
+              <div><span class="ft-key">类型</span>Float|null</div>
+              <div><span class="ft-key">来源</span>GPS自动获取，未授权时null</div>
+              <div><span class="ft-key">说明</span>上报时的GPS坐标，仿真通过SimulationPanel替代</div>
+            </div>
+          </div>
+          <button class="btn-gps" id="btn-gps" onclick="getCurrentLocation()">获取位置</button>
+        </div>
+      </div>
+
+      <!-- 隐患描述 -->
+      <div class="form-item">
+        <div class="form-label row">
+          <span>隐患描述</span>
+          <span class="char-count" id="desc-cc">0/200</span>
+        </div>
+        <div data-field style="position:relative">
+          <textarea id="haz-desc" placeholder="描述隐患情况（选填，最多200字）" maxlength="200"
+            oninput="document.getElementById('desc-cc').textContent=this.value.length+'/200'"
+            style="width:100%;padding:9px 12px;border:1px solid #D9D9D9;border-radius:4px;font-size:14px;color:#262626;outline:none;background:#fff;font-family:inherit;resize:vertical;min-height:80px"></textarea>
+          <div class="ft">
+            <div><span class="ft-key">字段名</span><span class="ft-mono">description</span></div>
+            <div><span class="ft-key">类型</span>String|null</div>
+            <div><span class="ft-key">来源</span>表单提交，选填 max 200字</div>
+            <div><span class="ft-key">说明</span>隐患描述</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn-primary" id="submit-btn" onclick="doSubmit()">提交上报</button>
+  </div>
+
+  <div class="photo-preview-mask" id="photo-preview-mask" onclick="closePhotoPreview()">
+    <div class="photo-preview-box" onclick="event.stopPropagation()">
+      <div class="photo-preview-img">
+        <div class="photo-preview-icon">📷</div>
+        <div class="photo-preview-name" id="photo-preview-name"></div>
+      </div>
+      <div class="photo-preview-actions">
+        <button class="preview-close-btn" onclick="closePhotoPreview()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let photos = [];
+    let gpsLat = null, gpsLng = null;
+    let submitting = false;
+
+    SIM.utils.toast = function(msg) {
+      const el = document.createElement('div'); el.className = 'sim-toast'; el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.classList.add('show'), 10);
+      setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2000);
+    };
+
+    function addPhoto() {
+      photos.push('sim_haz_photo_' + Date.now() + '.jpg');
+      renderPhotos();
+    }
+    function removePhoto(i) {
+      photos.splice(i, 1);
+      renderPhotos();
+    }
+    function openPhotoPreview(i) {
+      document.getElementById('photo-preview-name').textContent = photos[i] || '';
+      document.getElementById('photo-preview-mask').classList.add('show');
+    }
+    function closePhotoPreview() {
+      document.getElementById('photo-preview-mask').classList.remove('show');
+    }
+    function renderPhotos() {
+      const area = document.getElementById('photo-area');
+      area.innerHTML = photos.map((p, i) => `
+        <div class="photo-thumb" onclick="openPhotoPreview(${i})" title="点击查看大图">
+          📷
+          <button class="del-btn" onclick="event.stopPropagation();removePhoto(${i})">×</button>
+        </div>`).join('') +
+        `<div class="add-photo" onclick="addPhoto()">
+          <span class="add-icon">+</span><span>添加照片</span>
+        </div>`;
+      document.getElementById('photo-count').textContent = photos.length + '张已添加';
+    }
+
+    function setGpsDisplay(text, state) {
+      document.getElementById('gps-text').textContent = text;
+      const display = document.getElementById('gps-display');
+      display.classList.remove('loading', 'error');
+      if (state === 'loading') display.classList.add('loading');
+      if (state === 'error') display.classList.add('error');
+    }
+
+    function getCurrentLocation() {
+      const btn = document.getElementById('btn-gps');
+      if (!navigator.geolocation) {
+        gpsLat = null; gpsLng = null;
+        setGpsDisplay('当前设备不支持定位', 'error');
+        SIM.utils.toast('设备不支持定位');
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = '获取中...';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          gpsLat = pos.coords.latitude;
+          gpsLng = pos.coords.longitude;
+          setGpsDisplay(gpsLat.toFixed(6) + ', ' + gpsLng.toFixed(6), 'loading');
+          SIM.utils.toast('GPS位置已获取');
+          btn.disabled = false;
+          btn.textContent = '获取位置';
+        },
+        () => {
+          gpsLat = null; gpsLng = null;
+          setGpsDisplay('无法获取位置，请检查定位权限', 'error');
+          SIM.utils.toast('GPS获取失败');
+          btn.disabled = false;
+          btn.textContent = '获取位置';
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    }
+
+    function doSubmit() {
+      if (submitting) return;
+      ['err-type','err-photo'].forEach(id => document.getElementById(id).style.display = 'none');
+      const type = document.getElementById('haz-type').value;
+      let ok = true;
+      if (!type) { document.getElementById('err-type').style.display = 'block'; ok = false; }
+      if (!photos.length) { document.getElementById('err-photo').style.display = 'block'; ok = false; }
+      if (!ok) return;
+      submitting = true;
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true; btn.textContent = '提交中...';
+      // MOCK_SIMULATION: 上报API仿真
+      setTimeout(() => {
+        const newHaz = {
+          id: 'HAZ-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-00' + (SIM.data.hazards.length + 1),
+          reporterId: 'U001', reporterName: '张三', deptId: 'D001', dept: '龙岗区交通局',
+          type, photos: [...photos], gpsLat, gpsLng,
+          description: document.getElementById('haz-desc').value || null,
+          status: 'ACTIVE', note: null, deletedAt: null,
+          createdAt: new Date().toISOString().slice(0,16).replace('T',' ')
+        };
+        SIM.data.hazards.unshift(newHaz);
+        SIM.utils.toast('已提交');
+        setTimeout(() => SIM.nav.back(), 1500);
+      }, 600);
+    }
+
+    // SimulationPanel: GPS位置仿真
+    SIM.createPanel({
+      items: [{
+        label: 'HAZ-001 GPS位置仿真',
+        html: `<button class="sim-btn" onclick="simGPS()">▶ 模拟获取GPS位置</button>
+               <button class="sim-btn" onclick="clearGPS()">清除GPS（测试未授权）</button>`
+      }]
+    });
+
+    function simGPS() {
+      gpsLat = 22.7231 + (Math.random() - 0.5) * 0.02;
+      gpsLng = 114.2456 + (Math.random() - 0.5) * 0.02;
+      setGpsDisplay(gpsLat.toFixed(6) + ', ' + gpsLng.toFixed(6), 'loading');
+      document.getElementById('sim-content').style.display = 'none';
+      SIM.utils.toast('GPS位置已获取');
+    }
+    function clearGPS() {
+      gpsLat = null; gpsLng = null;
+      setGpsDisplay('无法获取位置，请检查定位权限', 'error');
+      document.getElementById('sim-content').style.display = 'none';
+    }
+  </script>
+</body>
+</html>

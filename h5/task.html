@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 任务</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      background: #F0F0F0;
+      min-height: 100%;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #F5F5F5;
+      color: #262626; font-size: 14px;
+      max-width: 390px; margin: 0 auto; min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06);
+    }
+    .top-bar {
+      background: #fff; border-bottom: 1px solid #F0F0F0;
+      padding: 14px 16px 0; position: sticky; top: 0; z-index: 100;
+    }
+    .top-title { font-size: 18px; font-weight: 700; color: #262626; margin-bottom: 10px; }
+    .sub-tabs { display: flex; border-bottom: 2px solid #F0F0F0; }
+    .sub-tab {
+      flex: 1; text-align: center; padding: 8px 0; font-size: 14px; color: #8C8C8C;
+      cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s;
+    }
+    .sub-tab.active { color: #1677FF; border-bottom-color: #1677FF; font-weight: 600; }
+    .page-content {
+      background: #F5F5F5;
+      padding: 8px;
+      padding-bottom: 64px;
+    }
+
+    /* 架次卡片 */
+    .flight-card {
+      background: #fff; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06); cursor: pointer; transition: transform 0.15s;
+    }
+    .flight-card:active { transform: scale(0.99); }
+    .fc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .fc-id { font-size: 13px; font-weight: 600; color: #262626; }
+    .status-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .fc-task { font-size: 14px; font-weight: 500; color: #262626; margin-bottom: 6px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .fc-meta { font-size: 12px; color: #8C8C8C; display: flex; flex-direction: column; gap: 3px; }
+    .fc-meta-row { display: flex; align-items: center; gap: 4px; }
+    /* 进度条 */
+    .progress-bar { height: 4px; background: #F0F0F0; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #1677FF; border-radius: 2px; transition: width 0.3s; }
+    .progress-text { font-size: 11px; color: #1677FF; text-align: right; margin-top: 2px; }
+
+    .empty-state { display: flex; flex-direction: column; align-items: center; padding: 48px 24px; color: #8C8C8C; }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* Tooltip */
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+
+    .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 390px; background: #fff; border-top: 1px solid #F0F0F0;
+      display: flex; z-index: 1000; }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 8px 0 6px; text-decoration: none; color: #8C8C8C; }
+    .nav-item.active { color: #1677FF; }
+    .nav-icon { font-size: 20px; line-height: 1; margin-bottom: 2px; }
+    .nav-label { font-size: 10px; }
+  </style>
+</head>
+<body>
+  <script>
+    (function () {
+      const s = JSON.parse(localStorage.getItem('ywsf_session') || 'null');
+      if (!s) { window.location.replace('login.html'); return; }
+      if (typeof SIM !== 'undefined' && SIM.guardExecutorNoTaskMonitorPages) SIM.guardExecutorNoTaskMonitorPages();
+    })();
+  </script>
+  <div class="top-bar">
+    <div class="top-title">任务</div>
+    <div class="sub-tabs">
+      <div class="sub-tab active" id="stab-fly" onclick="switchTab('fly')">执行中</div>
+      <div class="sub-tab" id="stab-plan" onclick="switchTab('plan')">待执行</div>
+      <div class="sub-tab" id="stab-done" onclick="switchTab('done')">已完成</div>
+    </div>
+  </div>
+
+  <div class="page-content" id="page-content"></div>
+
+  <div id="bottom-nav-mount"></div>
+
+  <script>
+    const session = JSON.parse(localStorage.getItem('ywsf_session') || 'null');
+    if (!session) window.location.replace('login.html');
+    else {
+      const el = document.getElementById('bottom-nav-mount');
+      if (el) el.outerHTML = SIM.renderBottomNav('task');
+    }
+
+    let currentTab = 'fly';
+
+    const statusMap = { fly: 'IN_PROGRESS', plan: 'PENDING', done: 'COMPLETED' };
+
+    function switchTab(tab) {
+      currentTab = tab;
+      ['fly', 'plan', 'done'].forEach(t => {
+        document.getElementById('stab-' + t).classList.toggle('active', t === tab);
+      });
+      renderList();
+    }
+
+    function renderList() {
+      const status = statusMap[currentTab];
+      const flights = SIM.data.flights.filter(f => f.status === status && f.deptId === session.user.deptId);
+      const container = document.getElementById('page-content');
+
+      if (!flights.length) {
+        container.innerHTML = `<div class="empty-state">
+          <div class="empty-icon">🚁</div>
+          <p>暂无${currentTab === 'fly' ? '执行中' : currentTab === 'plan' ? '待执行' : '已完成'}架次</p>
+        </div>`;
+        return;
+      }
+
+      container.innerHTML = flights.map(f => {
+        const statusColor = SIM.utils.getStatusColor(f.status);
+        const statusBg = SIM.utils.getStatusBg(f.status);
+        const statusLabel = SIM.utils.getFlightStatusLabel(f.status);
+        const showProgress = f.status !== 'PENDING';
+        const progress = f.progress || 0;
+
+        return `
+          <div class="flight-card" onclick="goDetail('${f.id}')">
+            <div class="fc-head">
+              <span class="fc-id" data-field>${f.id}
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">flight_id</span></div>
+                  <div><span class="ft-key">类型</span>String</div>
+                  <div><span class="ft-key">来源</span>系统生成，唯一</div>
+                  <div><span class="ft-key">说明</span>架次唯一编号</div>
+                </div>
+              </span>
+              <span class="status-tag" style="color:${statusColor};background:${statusBg}" data-field>${statusLabel}
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">status</span></div>
+                  <div><span class="ft-key">类型</span>Enum PENDING|IN_PROGRESS|COMPLETED</div>
+                  <div><span class="ft-key">来源</span>流转更新</div>
+                  <div><span class="ft-key">说明</span>架次状态：待执行 / 执行中 / 已完成</div>
+                </div>
+              </span>
+            </div>
+            <div class="fc-task" data-field>${f.taskName}
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">task_id → task.name</span></div>
+                <div><span class="ft-key">类型</span>Ref→Task</div>
+                <div><span class="ft-key">来源</span>任务配置继承</div>
+                <div><span class="ft-key">说明</span>架次归属任务名称</div>
+              </div>
+            </div>
+            <div class="fc-meta">
+              <div class="fc-meta-row">
+                <span>🏢</span>
+                <span data-field>${f.dept}
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">dept_id → dept.name</span></div>
+                    <div><span class="ft-key">类型</span>Ref→Dept</div>
+                    <div><span class="ft-key">来源</span>任务配置继承</div>
+                    <div><span class="ft-key">说明</span>归属单位</div>
+                  </div>
+                </span>
+              </div>
+              <div class="fc-meta-row">
+                <span>🕐</span>
+                <span data-field>${f.scheduledAt}
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">scheduled_at</span></div>
+                    <div><span class="ft-key">类型</span>Timestamp</div>
+                    <div><span class="ft-key">来源</span>任务配置继承</div>
+                    <div><span class="ft-key">说明</span>计划执行时间</div>
+                  </div>
+                </span>
+              </div>
+            </div>
+            ${showProgress ? `
+              <div class="progress-bar" data-field>
+                <div class="progress-fill" style="width:${progress}%"></div>
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">progress</span></div>
+                  <div><span class="ft-key">类型</span>Int|null 0~100</div>
+                  <div><span class="ft-key">来源</span>系统更新，飞行中持续写入</div>
+                  <div><span class="ft-key">说明</span>执行进度百分比，待执行时null</div>
+                </div>
+              </div>
+              <div class="progress-text">${progress}%</div>` : ''}
+          </div>`;
+      }).join('');
+    }
+
+    function goDetail(id) {
+      SIM.nav.push('task_detail.html?id=' + id);
+    }
+
+    renderList();
+
+    SIM.createPanel({});
+  </script>
+</body>
+</html>

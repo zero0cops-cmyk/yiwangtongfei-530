@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 工单详情</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #F0F0F0; min-height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #F5F5F5; color: #262626; font-size: 14px;
+      max-width: 390px; margin: 0 auto; min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06);
+    }
+    .top-bar {
+      background: #fff; border-bottom: 1px solid #F0F0F0;
+      display: flex; align-items: center; padding: 0 16px; height: 48px;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .back-btn { background: none; border: none; font-size: 24px; color: #262626; cursor: pointer; padding: 0; width: 32px; }
+    .top-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; }
+    .top-right { width: 32px; }
+    .page-content { padding-bottom: 80px; }
+
+    /* 地图区 (WO-010-DETAIL) */
+    .map-area {
+      background: linear-gradient(135deg, #E6F4FF 0%, #BAE0FF 100%);
+      height: 160px; position: relative; overflow: hidden;
+    }
+    .map-placeholder { display: flex; align-items: center; justify-content: center;
+      height: 100%; flex-direction: column; gap: 8px;
+    }
+    .map-points { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+    .map-point {
+      background: rgba(255,255,255,0.9); border-radius: 16px; padding: 4px 10px;
+      font-size: 12px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s;
+    }
+    .map-point.selected { border-color: #1677FF; background: #E6F4FF; }
+    .map-label { font-size: 12px; color: #1677FF; font-weight: 500; }
+    .nav-to-btn {
+      position: absolute; bottom: 10px; right: 12px;
+      background: #1677FF; color: #fff; border: none; border-radius: 14px;
+      padding: 4px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;
+    }
+
+    /* 工单信息区 */
+    .card { background: #fff; margin: 8px; border-radius: 8px; padding: 12px 16px; }
+    .section-title { font-size: 15px; font-weight: 600; color: #262626; margin-bottom: 10px; }
+    .field-row { display: flex; padding: 7px 0; border-bottom: 1px solid #F0F0F0; align-items: flex-start; }
+    .field-row:last-child { border-bottom: none; }
+    .field-label { color: #8C8C8C; font-size: 13px; min-width: 72px; }
+    .field-value { color: #262626; font-size: 13px; flex: 1; }
+    .status-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+
+    /* 异常线索区 (WO-011/012) */
+    .anomaly-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .anomaly-item { border: 1px solid #F0F0F0; border-radius: 8px; margin-bottom: 10px; overflow: visible; }
+    .anomaly-head {
+      padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; background: #FAFAFA;
+    }
+    .anomaly-head-left { display: flex; flex-direction: column; gap: 3px; }
+    .anomaly-title { font-size: 14px; font-weight: 600; color: #262626; }
+    .anomaly-subtitle { font-size: 12px; color: #8C8C8C; }
+    .anomaly-conf { font-size: 12px; color: #1677FF; }
+    .anomaly-status { font-size: 12px; }
+    .anomaly-body { padding: 10px 12px; background: #fff; }
+
+    /* GPS围栏确认区 (WO-011) */
+    .gps-confirm-area { padding: 10px; background: #F0F5FF; border-radius: 6px; margin-bottom: 10px; }
+    .gps-confirm-area.confirmed { background: #F6FFED; }
+    .gps-status { font-size: 13px; color: #8C8C8C; display: flex; align-items: center; gap: 6px; }
+    .gps-status.confirmed { color: #52C41A; }
+
+    /* 上传区 (WO-012) */
+    .upload-area { margin-top: 8px; }
+    .upload-title { font-size: 13px; font-weight: 500; color: #262626; margin-bottom: 8px; }
+    .upload-note-readonly {
+      margin-top: 8px; padding: 8px 10px; border-radius: 4px;
+      background: #FAFAFA; border: 1px solid #F0F0F0; font-size: 12px; color: #595959; line-height: 1.6;
+    }
+    .photo-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .photo-thumb {
+      width: 64px; height: 64px; border-radius: 4px; overflow: hidden;
+      border: 1px solid #D9D9D9; position: relative; cursor: pointer;
+    }
+    .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .photo-thumb .del-btn {
+      position: absolute; top: 2px; right: 2px; width: 16px; height: 16px;
+      background: rgba(0,0,0,0.5); color: #fff; border-radius: 50%;
+      border: none; cursor: pointer; font-size: 10px; display: flex; align-items: center; justify-content: center;
+    }
+    .add-photo {
+      width: 64px; height: 64px; border: 1px dashed #D9D9D9; border-radius: 4px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; gap: 2px; color: #8C8C8C; font-size: 11px;
+    }
+    .add-photo:hover { border-color: #1677FF; color: #1677FF; }
+    .add-photo .add-icon { font-size: 20px; }
+    .note-input { width: 100%; padding: 7px 10px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 13px; resize: vertical; min-height: 60px; font-family: inherit; outline: none;
+    }
+    .note-input:focus { border-color: #1677FF; }
+    .char-count { text-align: right; font-size: 11px; color: #BFBFBF; margin-top: 2px; }
+    .photo-preview-mask {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: none;
+      align-items: center; justify-content: center; z-index: 10001; padding: 20px;
+    }
+    .photo-preview-mask.show { display: flex; }
+    .photo-preview-box { width: min(320px, 100%); background: #fff; border-radius: 8px; overflow: hidden; }
+    .photo-preview-img {
+      height: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(135deg,#cfe7ff,#91caff); color: #1d39c4;
+    }
+    .photo-preview-icon { font-size: 72px; line-height: 1; }
+    .photo-preview-name {
+      margin-top: 8px; font-size: 12px; color: #1f1f1f; padding: 0 10px;
+      text-align: center; word-break: break-all;
+    }
+    .photo-preview-actions { display: flex; justify-content: flex-end; padding: 10px 12px; border-top: 1px solid #F0F0F0; }
+    .preview-close-btn {
+      border: none; background: #1677FF; color: #fff; border-radius: 4px; padding: 6px 14px;
+      font-size: 13px; cursor: pointer;
+    }
+
+    /* 底部操作区 (WO-013/014) */
+    .bottom-bar {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 390px; background: #fff;
+      border-top: 1px solid #F0F0F0; padding: 10px 16px;
+      display: flex; gap: 8px; z-index: 1000;
+    }
+    .btn-primary {
+      flex: 1; padding: 10px; background: #1677FF; color: #fff; border: none;
+      border-radius: 4px; font-size: 15px; font-weight: 500; cursor: pointer;
+    }
+    .btn-primary:disabled { background: #D9D9D9; color: #BFBFBF; cursor: not-allowed; }
+    .btn-primary:not(:disabled):active { opacity: 0.8; }
+    .btn-danger { flex: 1; padding: 10px; background: #fff; color: #F5222D;
+      border: 1px solid #F5222D; border-radius: 4px; font-size: 15px; font-weight: 500; cursor: pointer;
+    }
+    .btn-default { flex: 1; padding: 10px; background: #fff; color: #595959;
+      border: 1px solid #D9D9D9; border-radius: 4px; font-size: 15px; cursor: pointer;
+    }
+    .disabled-tip { font-size: 11px; color: #8C8C8C; text-align: center; margin-top: 4px; }
+
+    /* 下拉选择 */
+    select { width: 100%; padding: 9px 12px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 14px; color: #262626; outline: none; background: #fff; font-family: inherit;
+    }
+    select:focus { border-color: #1677FF; }
+    .form-item { margin-bottom: 12px; }
+    .form-label { font-size: 13px; color: #595959; margin-bottom: 6px; display: block; }
+
+    /* Tooltip */
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft {
+      display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px;
+    }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+
+    /* Toast & Modal */
+    .sim-toast {
+      position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
+      font-size: 14px; z-index: 99999; opacity: 0; transition: all 0.3s;
+    }
+    .sim-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .sim-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 9000; display: flex; align-items: center; justify-content: center;
+    }
+    .sim-modal { background: #fff; border-radius: 8px; padding: 24px 20px; width: 300px; max-width: 90vw; }
+    .sim-modal h3 { margin: 0 0 12px; font-size: 16px; color: #000000d9; }
+    .sim-modal p { margin: 0 0 20px; font-size: 14px; color: #00000073; line-height: 1.6; }
+    .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-btns button { padding: 6px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn-modal-cancel { background: #fff; border: 1px solid #d9d9d9; color: #595959; }
+    .btn-modal-confirm { background: #1677FF; color: #fff; border: none; }
+    .btn-modal-danger { background: #F5222D; color: #fff; border: none; }
+
+    .divider { height: 8px; background: #F5F5F5; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <button class="back-btn" onclick="SIM.nav.back()">‹</button>
+    <div class="top-title">工单详情</div>
+    <div class="top-right"></div>
+  </div>
+
+  <div class="page-content" id="page-content">
+    <div style="text-align:center;padding:40px;color:#8C8C8C">加载中...</div>
+  </div>
+
+  <div id="bottom-bar"></div>
+  <div class="photo-preview-mask" id="photo-preview-mask" onclick="closePhotoPreview()">
+    <div class="photo-preview-box" onclick="event.stopPropagation()">
+      <div class="photo-preview-img">
+        <div class="photo-preview-icon">📷</div>
+        <div class="photo-preview-name" id="photo-preview-name"></div>
+      </div>
+      <div class="photo-preview-actions">
+        <button class="preview-close-btn" onclick="closePhotoPreview()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const session = JSON.parse(localStorage.getItem('ywsf_session') || 'null');
+    if (!session) window.location.replace('login.html');
+    const role = session ? session.role : 'ADMIN';
+    const userId = session ? session.user.id : 'U001';
+
+    const params = new URLSearchParams(location.search);
+    const woId = params.get('id');
+    let wo = SIM.utils.getWOById(woId);
+    if (!wo && SIM.data.workorders.length) wo = SIM.data.workorders[0];
+
+    // 本地状态（仿真用）
+    let localWo = JSON.parse(JSON.stringify(wo));
+    let selectedPoint = 0; // 当前选中异常点
+    let gpsSimulated = []; // 已模拟GPS进入的点
+    let localPhotos = {}; // 本地草稿照片 { mediaId: [url, ...] }
+    let localNotes = {}; // 本地草稿说明 { mediaId: string }
+
+    // 初始化已确认的GPS
+    localWo.anomalyMedia.forEach((m, i) => {
+      if (m.gpsConfirmedAt) gpsSimulated.push(i);
+      localPhotos[m.id] = m.sitePhotos && m.sitePhotos.length ? [...m.sitePhotos] : [];
+      localNotes[m.id] = m.siteNote || '';
+    });
+
+    function isExecutorFieldLocked() {
+      return role === 'EXECUTOR' && (localWo.status === 'PENDING_REVIEW' || localWo.status === 'CLOSED');
+    }
+
+    function render() {
+      const w = localWo;
+      const executorMaterialsLocked = role === 'EXECUTOR' && (w.status === 'PENDING_REVIEW' || w.status === 'CLOSED');
+      const statusColor = SIM.utils.getStatusColor(w.status);
+      const statusBg = SIM.utils.getStatusBg(w.status);
+      const statusLabel = SIM.utils.getStatusLabel(w.status);
+
+      // 地图区：展示所有异常点
+      const mapPoints = w.anomalyMedia.map((m, i) => `
+        <span class="map-point ${selectedPoint === i ? 'selected' : ''}" onclick="selectPoint(${i})">
+          📍 异常${i + 1}·${m.type}
+        </span>`).join('');
+
+      // 工单信息区（6字段）
+      const infoFields = `
+        <div class="field-row">
+          <span class="field-label">工单编号</span>
+          <span class="field-value" data-field>${w.id}
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">id</span></div>
+              <div><span class="ft-key">类型</span>String</div>
+              <div><span class="ft-key">来源</span>系统生成 WO-YYYY-MMDD-NNN</div>
+              <div><span class="ft-key">说明</span>工单唯一编号，不可修改</div>
+            </div>
+          </span>
+        </div>
+        <div class="field-row">
+          <span class="field-label">来源任务</span>
+          <span class="field-value" data-field>${w.taskName}
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">task_name</span></div>
+              <div><span class="ft-key">类型</span>String</div>
+              <div><span class="ft-key">来源</span>通过flight_id关联任务配置</div>
+              <div><span class="ft-key">说明</span>工单来源任务名称</div>
+            </div>
+          </span>
+        </div>
+        <div class="field-row">
+          <span class="field-label">任务站点</span>
+          <span class="field-value" data-field>${w.stationAddr}
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">station_addr</span></div>
+              <div><span class="ft-key">类型</span>String</div>
+              <div><span class="ft-key">来源</span>任务配置继承，不可修改</div>
+              <div><span class="ft-key">说明</span>任务所在站点位置</div>
+            </div>
+          </span>
+        </div>
+        <div class="field-row">
+          <span class="field-label">归属单位</span>
+          <span class="field-value" data-field>${w.dept}
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">dept_id → dept.name</span></div>
+              <div><span class="ft-key">类型</span>Ref→Dept</div>
+              <div><span class="ft-key">来源</span>上游触发，不可修改</div>
+              <div><span class="ft-key">说明</span>工单归属单位</div>
+            </div>
+          </span>
+        </div>
+        <div class="field-row">
+          <span class="field-label">指派执行人</span>
+          <span class="field-value" data-field>
+            ${w.assigneeName ? `${w.assigneeName}${w.dispatchedAt ? ` · ${w.dispatchedAt}` : ''}` : '<span style="color:#8C8C8C">待指派</span>'}
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">assignee_id → user.name</span></div>
+              <div><span class="ft-key">类型</span>Ref→User|null</div>
+              <div><span class="ft-key">来源</span>派发写入，按dept_id过滤仅EXECUTOR</div>
+              <div><span class="ft-key">说明</span>当前指派执行人；未派发时显示待指派</div>
+            </div>
+          </span>
+        </div>
+        <div class="field-row">
+          <span class="field-label">当前状态</span>
+          <span class="field-value">
+            <span class="status-tag" style="color:${statusColor};background:${statusBg}" data-field>${statusLabel}
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">status</span></div>
+                <div><span class="ft-key">类型</span>Enum</div>
+                <div><span class="ft-key">来源</span>流转更新</div>
+                <div><span class="ft-key">说明</span>工单当前状态，见工单状态机</div>
+              </div>
+            </span>
+          </span>
+        </div>
+        <div class="field-row">
+          <span class="field-label">生成时间</span>
+          <span class="field-value" data-field>${w.createdAt}
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">created_at</span></div>
+              <div><span class="ft-key">类型</span>Timestamp</div>
+              <div><span class="ft-key">来源</span>系统生成，不可修改</div>
+              <div><span class="ft-key">说明</span>工单创建时间</div>
+            </div>
+          </span>
+        </div>`;
+
+      // 异常线索区（逐项展开）
+      const anomalyItems = w.anomalyMedia.map((m, i) => {
+        const gpsConfirmed = gpsSimulated.includes(i) || !!m.gpsConfirmedAt;
+        const photos = localPhotos[m.id] || [];
+        const note = localNotes[m.id] || '';
+
+        const gpsArea = role === 'EXECUTOR' ? (
+          executorMaterialsLocked
+            ? `<div class="gps-confirm-area confirmed" data-field>
+            <div class="gps-status confirmed">
+              ${gpsConfirmed
+                ? `✅ 已确认到达 · ${m.gpsConfirmedAt || '—'}（提交复核后不可修改）`
+                : `⏳ 待到达（工单已提交复核，现场数据已锁定）`}
+            </div>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">gps_confirmed_at</span></div>
+              <div><span class="ft-key">类型</span>Timestamp|null</div>
+              <div><span class="ft-key">来源</span>GPS自动写入</div>
+              <div><span class="ft-key">说明</span>提交复核后执行人侧不可再改</div>
+            </div>
+          </div>`
+            : `<div class="gps-confirm-area ${gpsConfirmed ? 'confirmed' : ''}" data-field>
+            <div class="gps-status ${gpsConfirmed ? 'confirmed' : ''}">
+              ${gpsConfirmed
+                ? `✅ 已确认到达，请上传现场材料`
+                : `⏳ 请前往该地点，进入围栏范围后系统将自动确认到达`}
+            </div>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">gps_confirmed_at</span></div>
+              <div><span class="ft-key">类型</span>Timestamp|null</div>
+              <div><span class="ft-key">来源</span>GPS自动写入，进入围栏即写入；一次性</div>
+              <div><span class="ft-key">说明</span>该异常点GPS确认时间，WO-011仿真</div>
+            </div>
+          </div>`
+        ) : '';
+
+        const clueMaterialArea = `
+          <div class="upload-area">
+            <div class="upload-title" data-field>
+              确认异常素材（AI识别）
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">anomaly_media_ids</span></div>
+                <div><span class="ft-key">类型</span>Ref[]→Media</div>
+                <div><span class="ft-key">来源</span>线索识别确认结果（label=CONFIRMED）</div>
+                <div><span class="ft-key">说明</span>工单来源异常素材，复核依据之一</div>
+              </div>
+            </div>
+            <div class="photo-grid">
+              <div class="photo-thumb" onclick="openPreviewByName('anomaly_${m.id}.jpg')" title="点击查看大图">
+                <div style="width:100%;height:100%;background:linear-gradient(135deg,#d6f5ff,#91d5ff);display:flex;align-items:center;justify-content:center;font-size:20px">🛰️</div>
+              </div>
+            </div>
+          </div>`;
+
+        const uploadArea = (role === 'EXECUTOR' && gpsConfirmed) ? (
+          executorMaterialsLocked
+            ? `<div class="upload-area">
+            <div class="upload-title" data-field>现场材料（已提交，不可编辑）
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">site_photos / site_note</span></div>
+                <div><span class="ft-key">类型</span>File[] / String</div>
+                <div><span class="ft-key">来源</span>执行人提交复核前上传</div>
+                <div><span class="ft-key">说明</span>待复核/已关闭后只读展示</div>
+              </div>
+            </div>
+            <div class="photo-grid">
+              ${photos.map((p, pi) => `
+                <div class="photo-thumb" onclick="openPhotoPreview('${m.id}', ${pi})" title="点击查看大图">
+                  <div style="width:100%;height:100%;background:linear-gradient(135deg,#e0f0ff,#bae0ff);display:flex;align-items:center;justify-content:center;font-size:20px">📷</div>
+                </div>`).join('')}
+            </div>
+            ${photos.length === 0 ? '<div style="font-size:12px;color:#8C8C8C;margin-bottom:6px">无现场照片</div>' : ''}
+            <div class="upload-note-readonly">${note ? note : '现场说明：无'}</div>
+          </div>`
+            : `<div class="upload-area">
+            <div class="upload-title">现场材料（GPS确认后展开）</div>
+            <div class="photo-grid" id="photos-${m.id}">
+              ${photos.map((p, pi) => `
+                <div class="photo-thumb" onclick="openPhotoPreview('${m.id}', ${pi})" title="点击查看大图">
+                  <div style="width:100%;height:100%;background:linear-gradient(135deg,#e0f0ff,#bae0ff);display:flex;align-items:center;justify-content:center;font-size:20px">📷</div>
+                  <button class="del-btn" onclick="event.stopPropagation();removePhoto('${m.id}',${pi})">×</button>
+                </div>`).join('')}
+              <div class="add-photo" onclick="addPhoto('${m.id}')">
+                <span class="add-icon">+</span>
+                <span>添加照片</span>
+              </div>
+            </div>
+            ${photos.length === 0 ? '<div style="font-size:12px;color:#F5222D;margin-bottom:6px">请至少上传1张现场照片</div>' : ''}
+            <textarea class="note-input" id="note-${m.id}" placeholder="现场说明（选填，最多500字）"
+              oninput="updateNote('${m.id}',this.value)" maxlength="500">${note}</textarea>
+            <div class="char-count" id="cc-${m.id}">${note.length}/500</div>
+          </div>`
+        ) : '';
+
+        const reviewMaterialArea = (role === 'ADMIN' && w.status === 'PENDING_REVIEW') ? `
+          <div class="upload-area">
+            <div class="upload-title">现场材料（执行人已提交）</div>
+            <div class="photo-grid">
+              ${photos.map((p, pi) => `
+                <div class="photo-thumb" onclick="openPhotoPreview('${m.id}', ${pi})" title="点击查看大图">
+                  <div style="width:100%;height:100%;background:linear-gradient(135deg,#e0f0ff,#bae0ff);display:flex;align-items:center;justify-content:center;font-size:20px">📷</div>
+                </div>`).join('')}
+            </div>
+            ${photos.length === 0 ? '<div style="font-size:12px;color:#F5222D;margin-bottom:6px">未上传现场照片</div>' : ''}
+            <div class="upload-note-readonly">${note ? note : '现场说明：无'}</div>
+          </div>` : '';
+
+        return `
+          <div class="anomaly-item">
+            <div class="anomaly-head" onclick="toggleAnomaly('body-${i}')">
+              <div class="anomaly-head-left">
+                <span class="anomaly-title" data-field>异常${i + 1}：${m.type}
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">anomaly_media.type</span></div>
+                    <div><span class="ft-key">类型</span>String</div>
+                    <div><span class="ft-key">来源</span>AI识别结果</div>
+                    <div><span class="ft-key">说明</span>该异常的AI识别类型</div>
+                  </div>
+                </span>
+                <span class="anomaly-subtitle" data-field>📍 ${m.addr}
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">anomaly_addr</span></div>
+                    <div><span class="ft-key">类型</span>String</div>
+                    <div><span class="ft-key">来源</span>素材坐标反解</div>
+                    <div><span class="ft-key">说明</span>该异常点位置地址</div>
+                  </div>
+                </span>
+              </div>
+              <div style="text-align:right">
+                <div class="anomaly-conf" data-field>置信度 ${(m.confidence * 100).toFixed(0)}%
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">confidence</span></div>
+                    <div><span class="ft-key">类型</span>Float 0-1</div>
+                    <div><span class="ft-key">来源</span>AI识别引擎</div>
+                    <div><span class="ft-key">说明</span>AI识别置信度</div>
+                  </div>
+                </div>
+                <div class="anomaly-status" style="color:${gpsConfirmed ? '#52C41A' : '#FA8C16'}">
+                  ${gpsConfirmed ? '✅ 已到达' : '⏳ 待到达'}
+                </div>
+              </div>
+            </div>
+            <div class="anomaly-body" id="body-${i}" style="${i === selectedPoint ? '' : 'display:none'}">
+              ${clueMaterialArea}
+              ${gpsArea}
+              ${uploadArea}
+              ${reviewMaterialArea}
+              ${role !== 'EXECUTOR' ? `<div style="font-size:12px;color:#8C8C8C">
+                ${gpsConfirmed
+                  ? `GPS已确认到达 · ${m.gpsConfirmedAt || '仿真确认'}`
+                  : '执行人员尚未到达该异常点'}
+                ${localPhotos[m.id]?.length ? `· 已上传${localPhotos[m.id].length}张照片` : ''}
+              </div>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+
+      // 派发操作区 (WO-013) — 管理员 + PENDING_ASSIGN
+      let dispatchArea = '';
+      if (role === 'ADMIN' && w.status === 'PENDING_ASSIGN') {
+        const executors = SIM.utils.getExecutorsByDept(w.deptId);
+        dispatchArea = `
+          <div class="card" id="dispatch-area">
+            <div class="section-title">派发工单</div>
+            <div class="form-item">
+              <label class="form-label">执行人 <span style="color:#F5222D">*</span></label>
+              <div data-field style="position:relative">
+                <select id="sel-assignee" style="width:100%;padding:9px 12px;border:1px solid #D9D9D9;border-radius:4px;font-size:14px;color:#262626;outline:none;background:#fff;font-family:inherit">
+                  <option value="">请选择执行人</option>
+                  ${executors.map(u => `<option value="${u.id}">${u.name}（${u.role === 'EXECUTOR' ? '执行人员' : '管理员'}）</option>`).join('')}
+                </select>
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">assignee_id</span></div>
+                  <div><span class="ft-key">类型</span>Ref→User</div>
+                  <div><span class="ft-key">来源</span>派发写入，按dept_id过滤仅EXECUTOR</div>
+                  <div><span class="ft-key">说明</span>工单指派执行人，仅PENDING_ASSIGN时可写</div>
+                </div>
+              </div>
+            </div>
+            <div class="form-item">
+              <label class="form-label">派发备注
+                <span class="char-count" id="cc-dispatch">0/200</span>
+              </label>
+              <div data-field style="position:relative">
+                <textarea id="inp-dispatch-note" placeholder="派发说明（选填，最多200字）" maxlength="200"
+                  style="width:100%;padding:8px;border:1px solid #D9D9D9;border-radius:4px;font-size:13px;resize:vertical;min-height:60px;font-family:inherit;outline:none"
+                  oninput="document.getElementById('cc-dispatch').textContent=this.value.length+'/200'"></textarea>
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">dispatch_note</span></div>
+                  <div><span class="ft-key">类型</span>String|null</div>
+                  <div><span class="ft-key">来源</span>派发人填写，选填</div>
+                  <div><span class="ft-key">说明</span>派发备注，max 200字</div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      // 复核区 — 管理员 + PENDING_REVIEW
+      let reviewArea = '';
+      if (role === 'ADMIN' && w.status === 'PENDING_REVIEW') {
+        reviewArea = `
+          <div class="card" id="review-area">
+            <div class="section-title">复核工单</div>
+            <div class="form-item">
+              <label class="form-label">打回原因（选填）
+                <span class="char-count" id="cc-reject">0/200</span>
+              </label>
+              <textarea id="inp-reject-note" placeholder="说明打回原因（选填）" maxlength="200"
+                style="width:100%;padding:8px;border:1px solid #D9D9D9;border-radius:4px;font-size:13px;resize:vertical;min-height:60px;font-family:inherit;outline:none"
+                oninput="document.getElementById('cc-reject').textContent=this.value.length+'/200'"
+                data-field>
+              </textarea>
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">reject_note</span></div>
+                <div><span class="ft-key">类型</span>String|null</div>
+                <div><span class="ft-key">来源</span>复核人填写</div>
+                <div><span class="ft-key">说明</span>打回原因，选填，max 200字</div>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      document.getElementById('page-content').innerHTML = `
+        <!-- 地图区 -->
+        <div class="map-area">
+          <div class="map-placeholder">
+            <span class="map-label">仿真地图 · 异常点分布</span>
+            <div class="map-points">${mapPoints}</div>
+          </div>
+          <button class="nav-to-btn" onclick="handleNav()">📍 导航前往</button>
+        </div>
+
+        <!-- 工单信息区 -->
+        <div class="card">
+          <div class="section-title">工单信息</div>
+          ${infoFields}
+        </div>
+
+        <!-- 异常线索区 -->
+        <div class="card">
+          <div class="anomaly-header">
+            <span class="section-title" style="margin:0">确认异常 共${w.anomalyMedia.length}张</span>
+          </div>
+          ${anomalyItems}
+        </div>
+
+        ${dispatchArea}
+        ${reviewArea}
+      `;
+
+      renderBottomBar();
+    }
+
+    function renderBottomBar() {
+      const w = localWo;
+      const bar = document.getElementById('bottom-bar');
+
+      if (role === 'ADMIN') {
+        if (w.status === 'PENDING_ASSIGN') {
+          bar.innerHTML = `
+            <div class="bottom-bar">
+              <button class="btn-primary" onclick="doDispatch()">派 发</button>
+            </div>`;
+        } else if (w.status === 'PENDING_REVIEW') {
+          bar.innerHTML = `
+            <div class="bottom-bar">
+              <button class="btn-danger" onclick="doReject()">打 回</button>
+              <button class="btn-primary" onclick="doApprove()">复核通过</button>
+            </div>`;
+        } else {
+          bar.innerHTML = '';
+        }
+      } else if (role === 'EXECUTOR') {
+        if (w.status === 'CLOSED') {
+          bar.innerHTML = '';
+        } else if (w.status === 'PENDING_REVIEW') {
+          bar.innerHTML = `
+            <div class="bottom-bar" style="flex-direction:column">
+              <div class="disabled-tip">已提交复核，等待管理员审核</div>
+              <button class="btn-primary" style="flex:none;width:100%" disabled>提交复核</button>
+            </div>`;
+        } else {
+          const canSubmit = canSubmitReview();
+          const tip = !canSubmit ? `<div class="disabled-tip">需完成所有${w.anomalyMedia.length}处异常点GPS确认并上传照片</div>` : '';
+          bar.innerHTML = `
+            <div class="bottom-bar" style="flex-direction:column">
+              ${tip}
+              <button class="btn-primary" style="flex:none;width:100%"
+                ${canSubmit ? '' : 'disabled'}
+                onclick="doSubmitReview()">提交复核</button>
+            </div>`;
+        }
+      } else {
+        bar.innerHTML = '';
+      }
+    }
+
+    function canSubmitReview() {
+      return localWo.anomalyMedia.every((m, i) =>
+        (gpsSimulated.includes(i) || !!m.gpsConfirmedAt) &&
+        (localPhotos[m.id] || []).length >= 1
+      );
+    }
+
+    function selectPoint(i) {
+      selectedPoint = i;
+      render();
+    }
+
+    function toggleAnomaly(id) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function handleNav() {
+      SIM.utils.toast('导航仿真：已启动到达 ' + localWo.anomalyMedia[selectedPoint]?.addr);
+    }
+
+    // 添加仿真照片
+    function addPhoto(mediaId) {
+      if (isExecutorFieldLocked()) { SIM.utils.toast('提交复核后不可修改现场材料（仿真）'); return; }
+      if (!localPhotos[mediaId]) localPhotos[mediaId] = [];
+      localPhotos[mediaId].push('sim_photo_' + Date.now() + '.jpg');
+      render();
+    }
+
+    function removePhoto(mediaId, idx) {
+      if (isExecutorFieldLocked()) { SIM.utils.toast('提交复核后不可修改现场材料（仿真）'); return; }
+      if (localPhotos[mediaId]) {
+        localPhotos[mediaId].splice(idx, 1);
+        render();
+      }
+    }
+
+    function updateNote(mediaId, val) {
+      if (isExecutorFieldLocked()) { SIM.utils.toast('提交复核后不可修改现场材料（仿真）'); return; }
+      localNotes[mediaId] = val;
+      const el = document.getElementById('cc-' + mediaId);
+      if (el) el.textContent = val.length + '/500';
+    }
+
+    function openPhotoPreview(mediaId, idx) {
+      const name = (localPhotos[mediaId] && localPhotos[mediaId][idx]) || '';
+      openPreviewByName(name);
+    }
+
+    function openPreviewByName(name) {
+      document.getElementById('photo-preview-name').textContent = name;
+      document.getElementById('photo-preview-mask').classList.add('show');
+    }
+
+    function closePhotoPreview() {
+      document.getElementById('photo-preview-mask').classList.remove('show');
+    }
+
+    // WO-013: 派发
+    function doDispatch() {
+      const assigneeId = document.getElementById('sel-assignee')?.value;
+      if (!assigneeId) { SIM.utils.toast('请先选择执行人'); return; }
+      const assignee = SIM.utils.getUserById(assigneeId);
+      const note = document.getElementById('inp-dispatch-note')?.value || '';
+
+      SIM.confirm({
+        title: '确认派发工单？',
+        content: `将派发给 ${assignee.name}（${localWo.dept}），请确认无误。`,
+        confirmText: '确认派发',
+        onConfirm: () => {
+          // MOCK_SIMULATION: 派发API仿真
+          localWo.status = 'ASSIGNED';
+          localWo.assigneeId = assigneeId;
+          localWo.assigneeName = assignee.name;
+          localWo.dispatchNote = note || null;
+          localWo.dispatchedAt = new Date().toISOString().slice(0,16).replace('T',' ');
+          // 同步到SIM.data（仿真）
+          const idx = SIM.data.workorders.findIndex(w => w.id === localWo.id);
+          if (idx >= 0) Object.assign(SIM.data.workorders[idx], localWo);
+          SIM.utils.toast('派发成功，已推送通知给执行人员');
+          setTimeout(() => SIM.nav.back(), 1500);
+        }
+      });
+    }
+
+    // WO-014: 复核通过
+    function doApprove() {
+      SIM.confirm({
+        title: '确认复核通过？',
+        content: '工单将关闭并触发双端存档，操作不可逆。',
+        confirmText: '确认通过',
+        onConfirm: () => {
+          localWo.status = 'CLOSED';
+          localWo.reviewedBy = userId;
+          localWo.reviewedAt = new Date().toISOString().slice(0,16).replace('T',' ');
+          localWo.closedAt = localWo.reviewedAt;
+          const idx = SIM.data.workorders.findIndex(w => w.id === localWo.id);
+          if (idx >= 0) Object.assign(SIM.data.workorders[idx], localWo);
+          SIM.utils.toast('复核通过，工单已关闭并触发双端存档');
+          setTimeout(() => SIM.nav.back(), 1500);
+        }
+      });
+    }
+
+    // WO-014: 打回
+    function doReject() {
+      const note = document.getElementById('inp-reject-note')?.value || '';
+      SIM.confirm({
+        title: '确认打回？',
+        content: '工单将退回给执行人重新处理。',
+        confirmText: '确认打回',
+        confirmClass: 'btn-modal-danger',
+        onConfirm: () => {
+          localWo.status = 'REJECTED';
+          localWo.rejectedAt = new Date().toISOString().slice(0,16).replace('T',' ');
+          localWo.rejectNote = note || null;
+          const idx = SIM.data.workorders.findIndex(w => w.id === localWo.id);
+          if (idx >= 0) Object.assign(SIM.data.workorders[idx], localWo);
+          SIM.utils.toast('已打回工单，等待执行人处理');
+          setTimeout(() => SIM.nav.back(), 1500);
+        }
+      });
+    }
+
+    // WO-012: 提交复核
+    function doSubmitReview() {
+      if (localWo.status === 'PENDING_REVIEW') return;
+      if (!canSubmitReview()) {
+        SIM.utils.toast('请先完成所有异常点核实');
+        return;
+      }
+      const count = localWo.anomalyMedia.length;
+      SIM.confirm({
+        title: '确认提交？',
+        content: `提交后工单将进入复核，请确认所有${count}处异常点材料已上传完整。`,
+        confirmText: '确认提交',
+        onConfirm: () => {
+          // WO-012: 提交复核前，将每条异常项材料写回工单数据
+          localWo.anomalyMedia.forEach((m) => {
+            m.sitePhotos = [...(localPhotos[m.id] || [])];
+            m.siteNote = (localNotes[m.id] || '').trim();
+          });
+          localWo.status = 'PENDING_REVIEW';
+          localWo.submittedAt = new Date().toISOString().slice(0,16).replace('T',' ');
+          const idx = SIM.data.workorders.findIndex(w => w.id === localWo.id);
+          if (idx >= 0) Object.assign(SIM.data.workorders[idx], localWo);
+          SIM.utils.toast('已提交复核，等待审核');
+          setTimeout(() => SIM.nav.replace('workorder.html'), 2000);
+        }
+      });
+    }
+
+    render();
+
+    // SimulationPanel (WO-011: GPS围栏仿真)
+    SIM.createPanel({
+      items: [
+        {
+          label: 'WO-011 GPS围栏仿真',
+          html: localWo.anomalyMedia.map((m, i) => `
+            <button class="sim-btn" onclick="simGPS(${i})"
+              ${(gpsSimulated.includes(i) || !!m.gpsConfirmedAt) ? 'style="opacity:0.5;cursor:default"' : ''}>
+              ${(gpsSimulated.includes(i) || !!m.gpsConfirmedAt) ? '✅' : '▶'} 模拟进入围栏·异常${i+1}
+            </button>
+          `).join('')
+        }
+      ]
+    });
+
+    function simGPS(idx) {
+      if (isExecutorFieldLocked()) {
+        SIM.utils.toast('提交复核后不可修改围栏与现场数据（仿真）');
+        return;
+      }
+      if (gpsSimulated.includes(idx)) { SIM.utils.toast('该围栏已模拟进入'); return; }
+      gpsSimulated.push(idx);
+      const m = localWo.anomalyMedia[idx];
+      m.gpsConfirmedAt = new Date().toISOString().slice(0,16).replace('T',' ');
+      m.gpsLat = 22.7231 + idx * 0.007;
+      m.gpsLng = 114.2456 + idx * 0.006;
+      selectedPoint = idx;
+      // 状态从ASSIGNED变为IN_PROGRESS（H5首次打开逻辑）
+      if (localWo.status === 'ASSIGNED') {
+        localWo.status = 'IN_PROGRESS';
+        localWo.viewedAt = localWo.viewedAt || new Date().toISOString().slice(0,16).replace('T',' ');
+      }
+      SIM.utils.toast(`已模拟进入围栏·异常${idx+1}，已确认到达`);
+      document.getElementById('sim-content').style.display = 'none';
+      render();
+    }
+
+    // SIM.confirm方法（避免依赖外部）
+    if (!SIM.confirm) {
+      SIM.confirm = function({ title, content, confirmText = '确认', confirmClass = 'btn-modal-confirm', onConfirm }) {
+        const overlay = document.createElement('div');
+        overlay.className = 'sim-modal-overlay';
+        overlay.innerHTML = `<div class="sim-modal">
+          <h3>${title}</h3><p>${content}</p>
+          <div class="modal-btns">
+            <button class="btn-modal-cancel">取消</button>
+            <button class="${confirmClass}">${confirmText}</button>
+          </div></div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('.btn-modal-cancel').onclick = () => overlay.remove();
+        overlay.querySelector('.' + confirmClass).onclick = () => { overlay.remove(); onConfirm && onConfirm(); };
+      };
+    }
+
+    // utils.toast
+    SIM.utils.toast = function(msg, duration = 2000) {
+      const el = document.createElement('div');
+      el.className = 'sim-toast';
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.classList.add('show'), 10);
+      setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, duration);
+    };
+  </script>
+</body>
+</html>

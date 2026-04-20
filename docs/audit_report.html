@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>反转译审计报告 · 一网统飞 v1.0.0-SIM</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f8f6f1;
+      --surface: #ffffff;
+      --surface-2: #f2efe9;
+      --border: rgba(0,0,0,0.10);
+      --text: #1a1814;
+      --text-dim: #6b6560;
+      --text-mono: #4a3728;
+      --accent: #1a4a7a;
+      --accent-dim: #e6eef7;
+      --pass: #1a6b3a;
+      --pass-bg: #e8f5ed;
+      --warn: #7a4e00;
+      --warn-bg: #fff7e0;
+      --fail: #8b1a1a;
+      --fail-bg: #fdecea;
+      --info: #1a4a7a;
+      --info-bg: #e6eef7;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* HEADER */
+    .report-header {
+      background: var(--accent);
+      color: #fff;
+      padding: 48px 48px 36px;
+    }
+    .report-badge {
+      display: inline-block;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 3px;
+      padding: 3px 10px;
+      margin-bottom: 16px;
+    }
+    .report-title {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+    .report-subtitle {
+      font-size: 14px;
+      opacity: 0.7;
+      margin-bottom: 28px;
+    }
+    .report-meta {
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .meta-item { display: flex; flex-direction: column; gap: 2px; }
+    .meta-key { font-size: 11px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.08em; }
+    .meta-val { font-size: 14px; font-weight: 600; }
+
+    /* SUMMARY CARDS */
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .summary-card {
+      background: var(--surface);
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .summary-num {
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .summary-num.pass { color: var(--pass); }
+    .summary-num.warn { color: var(--warn); }
+    .summary-num.fail { color: var(--fail); }
+    .summary-label { font-size: 12px; color: var(--text-dim); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+
+    /* MAIN LAYOUT */
+    .main { max-width: 1200px; margin: 0 auto; padding: 32px 48px 64px; }
+
+    /* SECTION */
+    .section { margin-bottom: 48px; }
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--accent);
+    }
+    .section-num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .section-count {
+      margin-left: auto;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    /* TABLE */
+    .audit-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .audit-table thead th {
+      background: var(--surface-2);
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .audit-table tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+    .audit-table tbody tr:last-child { border-bottom: none; }
+    .audit-table tbody tr:hover { background: var(--surface-2); }
+    .audit-table tbody td {
+      padding: 10px 14px;
+      vertical-align: top;
+    }
+
+    .func-id {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+    .logic-text {
+      color: var(--text);
+      line-height: 1.55;
+    }
+    .evidence-code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text-mono);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 5px;
+      white-space: nowrap;
+    }
+
+    /* STATUS BADGES */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 3px;
+      padding: 3px 8px;
+      white-space: nowrap;
+    }
+    .badge-pass { background: var(--pass-bg); color: var(--pass); }
+    .badge-warn { background: var(--warn-bg); color: var(--warn); }
+    .badge-fail { background: var(--fail-bg); color: var(--fail); }
+    .badge-info { background: var(--info-bg); color: var(--info); }
+
+    .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .dot-pass { background: var(--pass); }
+    .dot-warn { background: var(--warn); }
+    .dot-fail { background: var(--fail); }
+
+    /* DEVIATION CALLOUT */
+    .deviation-note {
+      margin-top: 6px;
+      padding: 6px 10px;
+      background: var(--warn-bg);
+      border-left: 3px solid var(--warn);
+      border-radius: 0 3px 3px 0;
+      font-size: 12px;
+      color: var(--warn);
+      line-height: 1.5;
+    }
+
+    /* VERDICT SECTION */
+    .verdict-box {
+      background: var(--pass-bg);
+      border: 1px solid rgba(26,107,58,0.2);
+      border-radius: 6px;
+      padding: 20px 24px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .verdict-icon {
+      font-size: 24px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .verdict-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--pass);
+      margin-bottom: 6px;
+    }
+    .verdict-text {
+      font-size: 13px;
+      color: var(--pass);
+      line-height: 1.6;
+    }
+
+    /* FOOTER */
+    .report-footer {
+      background: var(--surface-2);
+      border-top: 1px solid var(--border);
+      padding: 20px 48px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .footer-mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+
+    /* NEXT STEPS */
+    .next-steps {
+      background: var(--accent-dim);
+      border: 1px solid rgba(26,74,122,0.15);
+      border-radius: 6px;
+      padding: 20px 24px;
+    }
+    .next-steps-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    .next-step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: var(--accent);
+    }
+    .step-num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 2px;
+      padding: 1px 5px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    @media (max-width: 768px) {
+      .report-header { padding: 32px 24px 24px; }
+      .main { padding: 24px 16px 48px; }
+      .summary-strip { grid-template-columns: repeat(2, 1fr); }
+      .report-footer { flex-direction: column; gap: 8px; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="report-header">
+    <div class="report-badge">AUDIT REPORT · ROLE B-1</div>
+    <div class="report-title">反转译审计报告</div>
+    <div class="report-subtitle">一网统飞 · 移动端应用迭代（变更20）· v1.0.0-SIM</div>
+    <div class="report-meta">
+      <div class="meta-item"><span class="meta-key">审计日期</span><span class="meta-val">2026-04-15</span></div>
+      <div class="meta-item"><span class="meta-key">执行角色</span><span class="meta-val">B-1 沙盘执行官</span></div>
+      <div class="meta-item"><span class="meta-key">PRD版本</span><span class="meta-val">v2.1.0-SOP</span></div>
+      <div class="meta-item"><span class="meta-key">审计范围</span><span class="meta-val">22 HTML 文件 · 全量 FUNC-ID</span></div>
+    </div>
+  </div>
+
+  <!-- SUMMARY -->
+  <div class="summary-strip">
+    <div class="summary-card">
+      <span class="summary-num pass">28</span>
+      <span class="summary-label">对齐（Pass）</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-num warn">2</span>
+      <span class="summary-label">微偏差（可接受）</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-num fail">0</span>
+      <span class="summary-label">严重偏差</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-num" style="color:var(--text-dim)">30</span>
+      <span class="summary-label">审计总项</span>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- SECTION 1: H5工单模块 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-num">§01</span>
+        <span class="section-title">H5端 · 工单模块</span>
+        <span class="section-count">WO-009 / 010 / 011 / 012 / 013 / 014</span>
+      </div>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th style="width:120px">FUNC-ID</th>
+            <th style="width:220px">代码逻辑还原</th>
+            <th style="width:200px">关键证据</th>
+            <th style="width:100px">PRD对齐</th>
+            <th>偏差说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="func-id">WO-009</td>
+            <td class="logic-text">工单Tab含统计/管理两个子Tab。管理员视角显示7个状态卡片（全部/待指派/已指派/跟进中/待复核/已打回/已完成）；执行人员视角显示4个（待跟进/跟进中/待复核/已完成）。点击卡片→切换管理Tab→带入状态筛选。</td>
+            <td><code class="evidence-code">workorder.html:166-168</code><br><code class="evidence-code">workorder.html:192</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">WO-009<br><small style="color:var(--text-dim)">执行人待跟进</small></td>
+            <td class="logic-text">执行人员「待跟进」= ASSIGNED+REJECTED 合并，统计和列表中均做了联合筛选处理。</td>
+            <td><code class="evidence-code">workorder.html:261</code><br><code class="evidence-code">workorder.html:346</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">WO-010</td>
+            <td class="logic-text">管理子Tab卡片渲染5个字段：工单编号+状态标签、任务名称、任务站点、指派执行人（未指派显示「待指派」灰色）、异常数量+生成时间。支持日期/状态筛选联动。</td>
+            <td><code class="evidence-code">workorder.html:260-350</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">WO-010-DETAIL<br><small style="color:var(--text-dim)">页面结构</small></td>
+            <td class="logic-text">详情页结构：仿真地图区（160px，显示异常点标记，可切换选中）、工单信息区（6字段）、异常线索区（逐项展开）、底部固定操作区。非CLOSED时底部区域常驻。</td>
+            <td><code class="evidence-code">workorder_detail.html:438-466</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">WO-010-DETAIL<br><small style="color:var(--text-dim)">底部操作区</small></td>
+            <td class="logic-text">按角色+状态差异化：管理员+PENDING_ASSIGN→[派发]；管理员+PENDING_REVIEW→[打回][复核通过]；管理员其他状态→无按钮；执行人员非CLOSED→[提交复核]（条件置灰）；执行人员CLOSED→无按钮。</td>
+            <td><code class="evidence-code">workorder_detail.html:473-504</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">WO-011</td>
+            <td class="logic-text">每条 anomaly_media 独立 GPS 围栏，SimulationPanel 中每项有独立「模拟进入围栏·异常N」按钮。触发后写入该项 gpsLat/gpsLng/gpsConfirmedAt，并自动展开上传区。已确认项按钮变灰不可重复触发。同时捎带 ASSIGNED→IN_PROGRESS 状态转换（写 viewedAt）。</td>
+            <td><code class="evidence-code">workorder_detail.html:638-670</code></td>
+            <td><span class="badge badge-warn"><span class="dot dot-warn"></span>微偏差</span></td>
+            <td>
+              <div class="deviation-note">
+                <strong>偏差</strong>：PRD 规定 ASSIGNED→IN_PROGRESS 在「H5首次打开工单详情」时自动触发，代码将此逻辑绑定到 simGPS() 中。<br>
+                <strong>评估</strong>：仿真环境可接受，代码注释已标注「H5首次打开逻辑」，真实接入后需移至 onLoad()。
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="func-id">WO-012</td>
+            <td class="logic-text">GPS确认后上传区自动展开（role=EXECUTOR且gpsConfirmed）。至少1张照片校验，note max500字。canSubmitReview() 检查所有 anomaly_media 均 gpsConfirmedAt非空 AND photos≥1。提交复核：前端校验→二次确认弹窗→Toast→replace 回列表。</td>
+            <td><code class="evidence-code">workorder_detail.html:507-634</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">WO-013</td>
+            <td class="logic-text">管理员+PENDING_ASSIGN 才渲染派发区。执行人下拉按 dept 过滤仅 EXECUTOR 账号。派发备注 max200。二次确认弹窗标题「确认派发工单？」，确认后 status→ASSIGNED，写 assigneeId/dispatchedAt，Toast 推送通知。</td>
+            <td><code class="evidence-code">workorder_detail.html:548-573</code></td>
+            <td><span class="badge badge-warn"><span class="dot dot-warn"></span>微偏差</span></td>
+            <td>
+              <div class="deviation-note">
+                <strong>偏差</strong>：PRD 弹窗文案为「将派发给 {name}，请确认无误。」，代码为「将派发给 {name}（{dept}），请确认无误。」（多了委办局名）。<br>
+                <strong>评估</strong>：信息增强，符合 WO-006 PC 端规范，可接受。
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="func-id">WO-014</td>
+            <td class="logic-text">管理员+PENDING_REVIEW 才渲染复核区。复核通过弹窗「操作不可逆」提示，确认后 status→CLOSED，写 reviewedBy/reviewedAt/closedAt，Toast「已关闭并触发双端存档」。打回弹窗确认后 status→REJECTED，写 rejectedAt/rejectNote（选填），Toast。</td>
+            <td><code class="evidence-code">workorder_detail.html:576-612</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SECTION 2: H5任务监控模块 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-num">§02</span>
+        <span class="section-title">H5端 · 任务监控模块</span>
+        <span class="section-count">MON-001 / 002 / 003 / 004 / 005</span>
+      </div>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th style="width:120px">FUNC-ID</th>
+            <th style="width:220px">代码逻辑还原</th>
+            <th style="width:200px">关键证据</th>
+            <th style="width:100px">PRD对齐</th>
+            <th>偏差说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="func-id">MON-001</td>
+            <td class="logic-text">任务Tab三个子Tab：在飞（IN_PROGRESS）/计划（PENDING）/完成（COMPLETED）。statusMap 映射正确。架次卡片显示：编号+状态标签、任务名称、站点、时间、进度条（计划状态无进度条）。</td>
+            <td><code class="evidence-code">task.html:97</code><br><code class="evidence-code">task.html:76-78</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">MON-002<br><small style="color:var(--text-dim)">三态差异化</small></td>
+            <td class="logic-text">在飞(isFlying)：显示「查看航迹」+「查看实时视频」；计划(isPending)：仅显示「查看航迹」，无视频入口；完成(isCompleted)：显示「查看航迹」+「查看视频回放」。三种状态独立代码分支，视频入口按状态精确控制。</td>
+            <td><code class="evidence-code">task_detail.html:87-138</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">MON-003</td>
+            <td class="logic-text">实时视频页，MQTT仿真替代：全屏无人机动画+扫描线效果，底部展示 flight_id 和任务名称+执行中进度。</td>
+            <td><code class="evidence-code">video_live.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">MON-004</td>
+            <td class="logic-text">视频回放页，静态仿真：视频播放器UI含进度条控件，底部展示 flight_id 和任务名称+已完成状态。</td>
+            <td><code class="evidence-code">video_replay.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">MON-005</td>
+            <td class="logic-text">航迹页，Cesium仿真：SVG路径替代 Cesium，蓝色虚线=规划航线，红色实线=实际轨迹。计划状态仅显示规划线，无实际轨迹。底部图例+架次信息。</td>
+            <td><code class="evidence-code">track.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SECTION 3: H5隐患模块 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-num">§03</span>
+        <span class="section-title">H5端 · 隐患模块</span>
+        <span class="section-count">HAZ-001 / 003 / 004</span>
+      </div>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th style="width:120px">FUNC-ID</th>
+            <th style="width:220px">代码逻辑还原</th>
+            <th style="width:200px">关键证据</th>
+            <th style="width:100px">PRD对齐</th>
+            <th>偏差说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="func-id">HAZ-001</td>
+            <td class="logic-text">隐患上报表单：类型（六选一下拉，必选）、现场照片（必填≥1张）、GPS自动获取（未授权时留空允许继续）、描述（选填max200）。提交校验：未选类型/未上传照片有对应错误提示，提交按钮不触发。</td>
+            <td><code class="evidence-code">hazard_form.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">HAZ-003</td>
+            <td class="logic-text">隐患列表：管理员看本局全部，执行人员仅看自己上报。日期/类型筛选。卡片字段：编号、类型标签、上报人、地点、时间。底部浮动「+新增隐患上报」按钮。列表空时显示空状态图示。</td>
+            <td><code class="evidence-code">hazard.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">HAZ-004</td>
+            <td class="logic-text">隐患详情：展示全量字段（含 gps_lat/lng/type/photos/description/status）。追加备注（max200，单次覆盖）。删除操作：二次确认→软删除（写 deleted_at，status→DELETED）。管理员和执行人员均可操作。</td>
+            <td><code class="evidence-code">hazard_detail.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SECTION 4: H5需求申报模块 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-num">§04</span>
+        <span class="section-title">H5端 · 需求申报模块</span>
+        <span class="section-count">REQ-001 / 002</span>
+      </div>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th style="width:120px">FUNC-ID</th>
+            <th style="width:220px">代码逻辑还原</th>
+            <th style="width:200px">关键证据</th>
+            <th style="width:100px">PRD对齐</th>
+            <th>偏差说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="func-id">REQ-001</td>
+            <td class="logic-text">需求申报表单：飞行区域（站点下拉选择，必填）、任务描述（max500必填）、任务时间（max200必填）、成果要求（max500必填）。字段实时字数统计，超长截断。必填项为空时标红提示。提交成功 Toast→返回列表。</td>
+            <td><code class="evidence-code">request_form.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">REQ-002</td>
+            <td class="logic-text">申报记录列表（仅管理员）：日期/状态筛选。卡片字段：申报编号、状态标签（SUBMITTED/PROCESSING/RESOLVED/REJECTED四态颜色）、飞行区域站点、申报时间。申报详情页展示运营人员回填信息（linked_task_id/resolved_desc等）。</td>
+            <td><code class="evidence-code">request.html</code><br><code class="evidence-code">request_detail.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SECTION 5: H5首页与导航 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-num">§05</span>
+        <span class="section-title">H5端 · 首页与导航</span>
+        <span class="section-count">NAV-001 / 002 / STAT-002 / 003 / 004</span>
+      </div>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th style="width:120px">FUNC-ID</th>
+            <th style="width:220px">代码逻辑还原</th>
+            <th style="width:200px">关键证据</th>
+            <th style="width:100px">PRD对齐</th>
+            <th>偏差说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="func-id">NAV-001</td>
+            <td class="logic-text">底部四Tab导航：首页/工单/任务/我的，贯穿 home.html 页面，各 Tab 通过 SIM.nav.replace 跳转，当前 Tab 高亮。</td>
+            <td><code class="evidence-code">home.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">NAV-002<br><small style="color:var(--text-dim)">首页结构</small></td>
+            <td class="logic-text">管理员首页：飞行任务/飞行成果/工单管理三组看板 + 隐患上报+需求申报两个功能入口。执行人员首页：仅工单管理看板（待跟进/跟进中/待复核/已完成）+ 隐患上报入口。今日/累计全局切换联动三组看板。</td>
+            <td><code class="evidence-code">home.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">STAT-002<br>STAT-003<br>STAT-004</td>
+            <td class="logic-text">三组看板均通过 MOCK 数据填充。今日/累计切换联动全部看板刷新。看板卡片无跳转行为。执行人员工单看板仅显示 4 个状态（待跟进/跟进中/待复核/已完成）。</td>
+            <td><code class="evidence-code">home.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SECTION 6: H5账号认证 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-num">§06</span>
+        <span class="section-title">H5端 · 账号认证</span>
+        <span class="section-count">AUTH-001 / 002 / 003</span>
+      </div>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th style="width:120px">FUNC-ID</th>
+            <th style="width:220px">代码逻辑还原</th>
+            <th style="width:200px">关键证据</th>
+            <th style="width:100px">PRD对齐</th>
+            <th>偏差说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="func-id">AUTH-001</td>
+            <td class="logic-text">账号密码登录页，仿真凭证校验（localStorage）。登录成功后 replace 跳转 home.html。未登录访问任意页面 → 路由守卫 replace 回登录页。</td>
+            <td><code class="evidence-code">login.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">AUTH-002</td>
+            <td class="logic-text">用户管理页（仅管理员，路由守卫拦截执行人员）：列表展示本局账号。支持新增（必填：姓名/角色/手机号，系统生成初始密码展示）、编辑（姓名/角色/手机号）、停用/启用（二次确认）、重置密码（展示新密码给管理员）。</td>
+            <td><code class="evidence-code">user_mgmt.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">AUTH-003</td>
+            <td class="logic-text">修改密码（原密码/新密码/确认新密码，必填，新密码≠原密码）、修改手机号（必填，格式校验）各自独立页面，均从「我的」Tab进入。</td>
+            <td><code class="evidence-code">change_pwd.html</code><br><code class="evidence-code">change_phone.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SECTION 7: PC端 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-num">§07</span>
+        <span class="section-title">PC端 · 工单 + 需求池 + 隐患池</span>
+        <span class="section-count">WO-004~008 / REQ-003 / HAZ-005</span>
+      </div>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th style="width:120px">FUNC-ID</th>
+            <th style="width:220px">代码逻辑还原</th>
+            <th style="width:200px">关键证据</th>
+            <th style="width:100px">PRD对齐</th>
+            <th>偏差说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="func-id">WO-004</td>
+            <td class="logic-text">PC工单列表：Tab 附带数量（全部/7状态），4列网格卡片，日期/关键词/委办局筛选，重置恢复当天。</td>
+            <td><code class="evidence-code">pc/workorder_list.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">WO-005<br>WO-006</td>
+            <td class="logic-text">PC工单详情基础信息区（6字段）+派发操作区（仅 PENDING_ASSIGN 显示，执行人下拉+备注+二次确认）。</td>
+            <td><code class="evidence-code">pc/workorder_detail.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">WO-007<br>WO-008</td>
+            <td class="logic-text">异常线索区（缩略图+大图模态框+来源架次入口）。处置记录时间线（11节点，绿/蓝/灰三态视觉规则，已完成/当前/待完成）。</td>
+            <td><code class="evidence-code">pc/workorder_detail.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">REQ-003<br>HAZ-005</td>
+            <td class="logic-text">PC 需求池：申报Tab（受理/驳回含驳回原因/完成操作，支持委办局/状态/时间筛选）+ 隐患Tab（查看/备注/软删除，支持委办局/时间筛选）。两个 Tab 共用 demand_pool.html。</td>
+            <td><code class="evidence-code">pc/demand_pool.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SECTION 8: 异常流 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-num">§08</span>
+        <span class="section-title">异常流 · E-001 ~ E-027</span>
+        <span class="section-count">全量 27 条</span>
+      </div>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th style="width:100px">E-ID范围</th>
+            <th style="width:260px">实现方式</th>
+            <th style="width:160px">覆盖文件</th>
+            <th style="width:100px">PRD对齐</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="func-id">E-001~002</td>
+            <td class="logic-text">列表空状态图示+文字，筛选结果空时有「清除筛选」按钮。</td>
+            <td><code class="evidence-code">workorder.html</code><br><code class="evidence-code">hazard.html 等</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">E-003~007</td>
+            <td class="logic-text">派发/提交/复核失败 Toast；GPS 未授权文案提示；停用账号过滤出派发下拉。</td>
+            <td><code class="evidence-code">workorder_detail.html</code><br><code class="evidence-code">hazard_form.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">E-008~009</td>
+            <td class="logic-text">后端日志场景，前端不处理，以系统说明注释标记。</td>
+            <td>—</td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">E-010~015</td>
+            <td class="logic-text">GPS 坐标范围校验；表单字段非法状态拦截；字数实时截断（maxlength + oninput）。</td>
+            <td><code class="evidence-code">workorder_detail.html</code><br><code class="evidence-code">request_form.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">E-016~018</td>
+            <td class="logic-text">隐患类型未选/照片未传/用户管理必填项为空，各自在 submit 时校验并提示。</td>
+            <td><code class="evidence-code">hazard_form.html</code><br><code class="evidence-code">user_mgmt.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="func-id">E-019~027</td>
+            <td class="logic-text">执行人员路由守卫（user_mgmt.html）；未登录守卫（所有页面 onload）；CLOSED 工单无写操作入口；视频/Cesium 加载失败 UI 提示。</td>
+            <td><code class="evidence-code">user_mgmt.html</code><br><code class="evidence-code">video_live.html</code><br><code class="evidence-code">track.html</code></td>
+            <td><span class="badge badge-pass"><span class="dot dot-pass"></span>对齐</span></td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- VERDICT -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-num">§09</span>
+        <span class="section-title">审计结论</span>
+      </div>
+      <div class="verdict-box" style="margin-bottom:24px">
+        <div class="verdict-icon">✅</div>
+        <div>
+          <div class="verdict-title">原型与 PRD v2.1.0-SOP 整体对齐，无严重偏差</div>
+          <div class="verdict-text">
+            30个审计项中 28 项完全对齐，2 项微偏差均在仿真环境可接受范围内，不影响原型验收。<br>
+            仿真策略执行正确：SimulationPanel 仅包含「无法真实触发的系统行为」，全量字段 Tooltip 已实现，字段注释全局开关就位。<br>
+            两个微偏差已记录，真实接入后需修正（见 §01 WO-011 / WO-013 行）。
+          </div>
+        </div>
+      </div>
+      <div class="next-steps">
+        <div class="next-steps-title">下阶段待执行（session.md 下一步）</div>
+        <div class="next-step-item">
+          <span class="step-num">01</span>
+          <span>WO-011 ASSIGNED→IN_PROGRESS 状态转换移至页面 onLoad()，真实接入后修正。</span>
+        </div>
+        <div class="next-step-item">
+          <span class="step-num">02</span>
+          <span>WO-013 派发弹窗文案确认是否需与 PRD 严格对齐（当前代码更详细，建议 PM 确认）。</span>
+        </div>
+        <div class="next-step-item">
+          <span class="step-num">03</span>
+          <span>接入真实后端接口，移除 MOCK_SIMULATION（待后端就绪）。</span>
+        </div>
+        <div class="next-step-item">
+          <span class="step-num">04</span>
+          <span>粤政易统一身份认证（D-09，待获权后推进）。</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FOOTER -->
+  <div class="report-footer">
+    <span>反转译审计报告 · 一网统飞变更20 · 由 B-1 沙盘执行官生成</span>
+    <span class="footer-mono">PRD v2.1.0-SOP · 原型 v1.0.0-SIM · 2026-04-15</span>
+  </div>
+
+</body>
+</html>

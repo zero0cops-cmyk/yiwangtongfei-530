@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>一网统飞 PC — 登录</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    .login-wrap { width: 100%; max-width: 440px; }
+    .logo-area { text-align: center; margin-bottom: 32px; }
+    .logo-icon { font-size: 48px; margin-bottom: 10px; display: block; }
+    .logo-title { font-size: 24px; font-weight: 700; color: #1677FF; margin-bottom: 4px; letter-spacing: 1px; }
+    .logo-sub { font-size: 13px; color: #8C8C8C; }
+    .login-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 32px 36px;
+      box-shadow: 0 8px 32px rgba(22, 90, 160, 0.12);
+      border: 1px solid rgba(22, 119, 255, 0.08);
+    }
+    .form-title { font-size: 18px; font-weight: 600; color: #262626; margin-bottom: 24px; text-align: center; }
+    .form-item { margin-bottom: 16px; }
+    .form-label { font-size: 13px; color: #595959; margin-bottom: 8px; display: block; }
+    .form-input {
+      width: 100%; padding: 10px 12px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 14px; color: #262626; outline: none; background: #FAFAFA; transition: border 0.2s;
+    }
+    .form-input:focus { border-color: #1677FF; background: #fff; }
+    .form-input.error { border-color: #F5222D; }
+    .err-msg { color: #F5222D; font-size: 12px; margin-top: 4px; display: none; }
+    .btn-login {
+      width: 100%; padding: 11px; background: #1677FF; color: #fff;
+      border: none; border-radius: 4px; font-size: 15px; font-weight: 600;
+      cursor: pointer; margin-top: 8px; transition: opacity 0.2s; letter-spacing: 2px;
+    }
+    .btn-login:disabled { background: #D9D9D9; color: #BFBFBF; cursor: not-allowed; }
+    .btn-login:not(:disabled):active { opacity: 0.85; }
+    .sim-hint { margin-top: 20px; background: #F0F5FF; border-radius: 8px; padding: 12px 14px; font-size: 12px; color: #1677FF; }
+    .sim-hint .hint-title { font-weight: 600; margin-bottom: 6px; }
+    .sim-hint table { width: 100%; border-collapse: collapse; }
+    .sim-hint td { padding: 2px 6px; }
+    .sim-hint .td-key { color: #8C8C8C; }
+
+    #sim-panel { position: fixed; bottom: 24px; right: 24px; z-index: 8000; }
+    #sim-toggle {
+      width: 44px; height: 44px; border-radius: 50%; background: #1677FF;
+      color: #fff; border: none; cursor: pointer; font-size: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    #sim-content {
+      position: absolute; bottom: 54px; right: 0; width: 260px;
+      background: #fff; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.15); display: none;
+    }
+    .sim-panel-header {
+      background: #1677FF; color: #fff; padding: 10px 14px;
+      display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; border-radius: 8px 8px 0 0;
+    }
+    #sim-close { background: none; border: none; color: #fff; cursor: pointer; font-size: 18px; padding: 0; }
+    .sim-body { padding: 12px; }
+    .sim-label { font-size: 12px; color: #8C8C8C; margin-bottom: 6px; display: block; }
+    .sim-acct-btn {
+      width: 100%; padding: 7px; background: #f0f5ff; color: #1677FF;
+      border: 1px solid #ADC6FF; border-radius: 4px; font-size: 12px;
+      cursor: pointer; margin-bottom: 6px; text-align: center;
+    }
+    .sim-acct-btn:hover { background: #1677FF; color: #fff; }
+    .tooltip-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #595959; }
+
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft {
+      display: none; position: absolute; left: 0; top: calc(100% + 6px);
+      z-index: 9999; background: #1a1a1a; color: #eee; border-radius: 6px;
+      padding: 10px 12px; font-size: 12px; line-height: 1.8; white-space: nowrap;
+      pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+  </style>
+</head>
+<body class="pc-login-only">
+  <header class="pc-topbar">
+    <div class="pc-topbar-weather">
+      <span>🌡 仿真 22°C</span>
+      <span>风 微风</span>
+      <span class="pc-w-extra">湿度 65%</span>
+      <span class="pc-w-extra">能见度 良好</span>
+    </div>
+    <div class="pc-topbar-center">东莞市一网统飞服务平台</div>
+    <div class="pc-topbar-right">
+      <span class="pc-btn-screen" title="本期未接入">态势大屏</span>
+      <span class="pc-clock" id="pc-clock"></span>
+    </div>
+  </header>
+  <div class="pc-login-main">
+  <div class="login-wrap">
+    <div class="logo-area">
+      <span class="logo-icon">🚁</span>
+      <div class="logo-title">一网统飞</div>
+      <div class="logo-sub">PC Web · 交通局示例</div>
+    </div>
+
+    <div class="login-card">
+      <div class="form-title">账号登录</div>
+
+      <div class="form-item">
+        <label class="form-label">账号</label>
+        <div data-field>
+          <input class="form-input" id="username" type="text" placeholder="请输入账号" autocomplete="off">
+          <div class="ft">
+            <div><span class="ft-key">字段名</span><span class="ft-mono">username</span></div>
+            <div><span class="ft-key">类型</span>String</div>
+            <div><span class="ft-key">来源</span>用户输入</div>
+            <div><span class="ft-key">说明</span>登录账号，系统管理员创建，绑定dept_id和role</div>
+          </div>
+        </div>
+        <div class="err-msg" id="username-err">请输入账号</div>
+      </div>
+
+      <div class="form-item">
+        <label class="form-label">密码</label>
+        <div data-field>
+          <input class="form-input" id="password" type="password" placeholder="请输入密码">
+          <div class="ft">
+            <div><span class="ft-key">字段名</span><span class="ft-mono">password</span></div>
+            <div><span class="ft-key">类型</span>String (加密传输)</div>
+            <div><span class="ft-key">来源</span>用户输入</div>
+            <div><span class="ft-key">说明</span>明文密码，传输前加密；初始密码由系统管理员创建</div>
+          </div>
+        </div>
+        <div class="err-msg" id="password-err">请输入密码</div>
+      </div>
+
+      <div class="err-msg" id="login-err" style="display:none;margin-bottom:8px;font-size:13px">账号或密码错误</div>
+
+      <button class="btn-login" id="btn-login" onclick="doLogin()">登 录</button>
+
+      <div class="sim-hint">
+        <div class="hint-title">📋 仿真账号 · PC Web（运营人员／观察员）</div>
+        <table>
+          <tr><td class="td-key">运营人员</td><td>operator / 123456</td></tr>
+          <tr><td class="td-key">观察员</td><td>observer / 123456</td></tr>
+        </table>
+        <div style="margin-top:8px;font-size:11px;color:#8C8C8C">委办局管理员/执行人员请使用粤政易 H5（admin／executor）</div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <div id="sim-panel">
+    <button id="sim-toggle" type="button" onclick="togglePanel()">⚙</button>
+    <div id="sim-content">
+      <div class="sim-panel-header">
+        <span>仿真控制台</span>
+        <button id="sim-close" type="button" onclick="togglePanel()">×</button>
+      </div>
+      <div class="sim-body">
+        <div class="sim-label">快速填入账号</div>
+        <button type="button" class="sim-acct-btn" onclick="fillAccount('operator','123456','OPERATOR')">运营人员（王运营）</button>
+        <button type="button" class="sim-acct-btn" onclick="fillAccount('observer','123456','OBSERVER')">观察员 · 龙岗局授权（钱观察）</button>
+        <div style="height:1px;background:#F0F0F0;margin:8px 0"></div>
+        <div class="tooltip-row">
+          字段注释
+          <input type="checkbox" id="tooltip-toggle" checked onchange="document.body.classList.toggle('hide-tooltip',!this.checked)">
+        </div>
+        <div style="height:1px;background:#F0F0F0;margin:8px 0"></div>
+        <button type="button" class="sim-acct-btn" onclick="location.href='../h5/login.html'">跳转至H5登录页</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function togglePanel() {
+      const c = document.getElementById('sim-content');
+      c.style.display = c.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function fillAccount(user, pwd, role) {
+      document.getElementById('username').value = user;
+      document.getElementById('password').value = pwd;
+      window._pendingRole = role;
+      togglePanel();
+    }
+
+    function doLogin() {
+      const u = document.getElementById('username').value.trim();
+      const p = document.getElementById('password').value.trim();
+      let valid = true;
+
+      document.getElementById('username-err').style.display = 'none';
+      document.getElementById('password-err').style.display = 'none';
+      document.getElementById('login-err').style.display = 'none';
+      document.getElementById('username').classList.remove('error');
+      document.getElementById('password').classList.remove('error');
+
+      if (!u) {
+        document.getElementById('username-err').style.display = 'block';
+        document.getElementById('username').classList.add('error');
+        valid = false;
+      }
+      if (!p) {
+        document.getElementById('password-err').style.display = 'block';
+        document.getElementById('password').classList.add('error');
+        valid = false;
+      }
+      if (!valid) return;
+
+      const btn = document.getElementById('btn-login');
+      btn.disabled = true;
+      btn.textContent = '登录中...';
+
+      setTimeout(() => {
+        const errEl = document.getElementById('login-err');
+        const h5Only = { admin: true, executor: true };
+        if (h5Only[u] && p === '123456') {
+          errEl.textContent = '委办局账号请使用粤政易 H5 登录';
+          errEl.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = '登 录';
+          return;
+        }
+        if (p !== '123456') {
+          errEl.textContent = '账号或密码错误';
+          errEl.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = '登 录';
+          return;
+        }
+        if (u === 'operator') {
+          localStorage.setItem('ywsf_session', JSON.stringify({
+            role: 'OPERATOR',
+            user: { id: 'OP001', name: '王运营', deptId: null, dept: '市运营中心' }
+          }));
+          window.location.replace('workorder_list.html');
+          return;
+        }
+        if (u === 'observer') {
+          localStorage.setItem('ywsf_session', JSON.stringify({
+            role: 'OBSERVER',
+            scopeDeptId: 'D001',
+            user: { id: 'OB001', name: '钱观察', deptId: 'D001', dept: '龙岗区交通局' }
+          }));
+          window.location.replace('workorder_list.html');
+          return;
+        }
+        errEl.textContent = '账号或密码错误';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = '登 录';
+      }, 800);
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+    const s = localStorage.getItem('ywsf_session');
+    if (s) try {
+      const j = JSON.parse(s);
+      if (j.user && (j.role === 'OPERATOR' || j.role === 'OBSERVER')) window.location.replace('workorder_list.html');
+    } catch (e) {}
+  </script>
+</body>
+</html>

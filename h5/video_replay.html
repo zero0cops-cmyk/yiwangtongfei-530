@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 视频回放</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #F0F0F0; min-height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: #F5F5F5; color: #262626; max-width: 390px; margin: 0 auto; min-height: 100vh;
+      display: flex; flex-direction: column; }
+    .top-bar { background: #fff; border-bottom: 1px solid #F0F0F0; display: flex; align-items: center;
+      padding: 0 16px; height: 48px; flex-shrink: 0; }
+    .back-btn { background: none; border: none; font-size: 24px; color: #262626; cursor: pointer; padding: 0; width: 32px; }
+    .top-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; color: #262626; }
+    .video-container {
+      position: relative; width: 100%; flex: 1; min-height: 0; display: flex; flex-direction: column;
+      padding: 8px 8px 0;
+    }
+    .video-sim {
+      width: 100%; flex: 1; min-height: 220px; position: relative; overflow: hidden;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #1a1a2e 0%, #0a0a0a 100%);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .play-btn {
+      width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,0.2);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      font-size: 28px; transition: all 0.2s; border: 2px solid rgba(255,255,255,0.4);
+    }
+    .play-btn:hover { background: rgba(255,255,255,0.3); }
+    .drone-icon2 { position: absolute; font-size: 48px; opacity: 0.15; }
+
+    .controls {
+      background: #fff; margin: 8px 8px 0; padding: 12px 16px; border-radius: 8px;
+      border: 1px solid #F0F0F0; flex-shrink: 0;
+    }
+    .progress-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .progress-slider { flex: 1; height: 4px; background: #E8E8E8; border-radius: 2px; position: relative; cursor: pointer; }
+    .progress-played { height: 100%; background: #1677FF; border-radius: 2px; width: 0; transition: width 0.5s; }
+    .time-label { font-size: 11px; color: #8C8C8C; white-space: nowrap; }
+    .control-btns { display: flex; align-items: center; gap: 12px; justify-content: center; }
+    .ctrl-btn { background: none; border: none; color: #262626; cursor: pointer; font-size: 20px; padding: 4px; }
+
+    .info-bar {
+      background: #fff; margin: 8px; padding: 12px 16px; border-radius: 8px;
+      border: 1px solid #F0F0F0; flex-shrink: 0;
+    }
+    .flight-id { font-size: 14px; font-weight: 600; color: #262626; }
+    .flight-task { font-size: 12px; color: #8C8C8C; margin-top: 3px; }
+
+    /* 与 common.js 全局 .ft(top:…) 冲突会拉成黑条，必须显式取消 top */
+    .meta-tip { position: relative; cursor: default; flex-shrink: 0; width: 22px; height: 22px; line-height: 20px;
+      text-align: center; font-size: 12px; font-weight: 600; color: #8C8C8C; border: 1px solid #D9D9D9; border-radius: 50%;
+      background: #FAFAFA; }
+    .meta-tip:hover .ft { display: block; }
+    .meta-tip .ft {
+      display: none; position: absolute; left: 0; top: auto !important; bottom: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px;
+    }
+    .meta-tip .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .meta-tip .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip .meta-tip:hover .ft { display: none; }
+  </style>
+</head>
+<body>
+  <script>SIM.guardExecutorNoTaskMonitorPages();</script>
+  <div class="top-bar">
+    <button class="back-btn" onclick="SIM.nav.back()">‹</button>
+    <div class="top-title">视频回放</div>
+    <div style="width:32px"></div>
+  </div>
+  <div class="video-container">
+    <div class="video-sim">
+      <div class="drone-icon2">🚁</div>
+      <div class="play-btn" id="play-btn" onclick="togglePlay()">▶</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="progress-row">
+      <span class="time-label" id="time-current">00:00</span>
+      <div class="progress-slider" onclick="seekTo(event)">
+        <div class="progress-played" id="progress-bar"></div>
+      </div>
+      <span class="time-label" id="time-total">05:30</span>
+      <div class="meta-tip" data-field>ⓘ
+        <div class="ft">
+          <div><span class="ft-key">字段名</span><span class="ft-mono">video_record</span></div>
+          <div><span class="ft-key">类型</span>Ref→Video|null</div>
+          <div><span class="ft-key">来源</span>系统归档，飞行完成后写入，单路</div>
+          <div><span class="ft-key">说明</span>历史视频记录，仿真替代为静态资源</div>
+        </div>
+      </div>
+    </div>
+    <div class="control-btns">
+      <button class="ctrl-btn" onclick="seekRelative(-10)">⏮ 10s</button>
+      <button class="ctrl-btn" id="play-ctrl" onclick="togglePlay()">▶</button>
+      <button class="ctrl-btn" onclick="seekRelative(10)">10s ⏭</button>
+    </div>
+  </div>
+
+  <div class="info-bar">
+    <div class="flight-id" id="fi-id">—</div>
+    <div class="flight-task" id="fi-task">—</div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const flight = SIM.utils.getFlightById(params.get('id')) || SIM.data.flights.find(f => f.status === 'COMPLETED');
+    if (flight) {
+      document.getElementById('fi-id').textContent = flight.id;
+      document.getElementById('fi-task').textContent = flight.taskName + '  [已完成]';
+    }
+
+    const totalDuration = 330;
+    let currentTime = 0;
+    let playing = false;
+    let timer = null;
+
+    function formatTime(s) {
+      const m = Math.floor(s / 60), sec = s % 60;
+      return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+    }
+
+    function updateUI() {
+      const pct = (currentTime / totalDuration) * 100;
+      document.getElementById('progress-bar').style.width = pct + '%';
+      document.getElementById('time-current').textContent = formatTime(Math.floor(currentTime));
+      document.getElementById('play-btn').textContent = playing ? '⏸' : '▶';
+      document.getElementById('play-ctrl').textContent = playing ? '⏸' : '▶';
+    }
+
+    function togglePlay() {
+      playing = !playing;
+      if (playing) {
+        timer = setInterval(() => {
+          currentTime += 1;
+          if (currentTime >= totalDuration) { currentTime = totalDuration; playing = false; clearInterval(timer); }
+          updateUI();
+        }, 1000);
+      } else {
+        clearInterval(timer);
+      }
+      updateUI();
+    }
+
+    function seekRelative(delta) {
+      currentTime = Math.max(0, Math.min(totalDuration, currentTime + delta));
+      updateUI();
+    }
+
+    function seekTo(e) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const pct = (e.clientX - rect.left) / rect.width;
+      currentTime = pct * totalDuration;
+      updateUI();
+    }
+
+    document.getElementById('time-total').textContent = formatTime(totalDuration);
+    updateUI();
+
+    SIM.createPanel({});
+  </script>
+</body>
+</html>

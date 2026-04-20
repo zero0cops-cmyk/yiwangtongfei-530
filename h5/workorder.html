@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 工单</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      background: #F0F0F0;
+      min-height: 100%;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #F5F5F5;
+      color: #262626; font-size: 14px;
+      max-width: 390px; margin: 0 auto; min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06);
+    }
+    /* 顶部 */
+    .top-bar {
+      background: #fff; border-bottom: 1px solid #F0F0F0;
+      padding: 14px 16px 0; position: sticky; top: 0; z-index: 100;
+    }
+    .top-title { font-size: 18px; font-weight: 700; color: #262626; margin-bottom: 10px; }
+    /* 子Tab切换 WO-009/010 */
+    .sub-tabs { display: flex; border-bottom: 2px solid #F0F0F0; }
+    .sub-tab {
+      flex: 1; text-align: center; padding: 8px 0; font-size: 14px; color: #8C8C8C;
+      cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s;
+    }
+    .sub-tab.active { color: #1677FF; border-bottom-color: #1677FF; font-weight: 600; }
+    .page-content {
+      background: #F5F5F5;
+      padding-bottom: 64px;
+    }
+
+    /* WO-009: 统计子Tab 今日/历史切换 */
+    .wo-period-switch {
+      background: #fff; padding: 10px 12px; display: flex; gap: 8px;
+      border-bottom: 1px solid #F0F0F0;
+    }
+    .period-btn {
+      padding: 5px 16px; border-radius: 14px; font-size: 13px;
+      border: 1px solid #D9D9D9; background: #fff; color: #595959; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .period-btn.active { background: #1677FF; color: #fff; border-color: #1677FF; }
+
+    /* WO-009: 统计子Tab */
+    #tab-stat .stat-inner { padding: 12px; }
+    .stat-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .stat-card {
+      background: #fff; border-radius: 8px; padding: 12px 8px;
+      text-align: center; cursor: pointer; border: 2px solid transparent;
+      transition: all 0.2s; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .stat-card:active { transform: scale(0.97); }
+    .stat-card.selected { border-color: #1677FF; background: #E6F4FF; }
+    .sc-num { font-size: 22px; font-weight: 700; line-height: 1.2; display: block; }
+    .sc-label { font-size: 11px; color: #8C8C8C; margin-top: 3px; display: block; }
+
+    /* WO-010: 管理子Tab */
+    #tab-manage { padding: 8px; }
+    .filter-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .filter-row input, .filter-row select {
+      flex: 1; padding: 7px 10px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 13px; color: #262626; background: #fff; outline: none;
+    }
+    .filter-row input:focus, .filter-row select:focus { border-color: #1677FF; }
+    /* 工单卡片 */
+    .wo-card {
+      background: #fff; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06); cursor: pointer; transition: transform 0.15s;
+    }
+    .wo-card:active { transform: scale(0.99); }
+    .wo-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .wo-id { font-size: 13px; font-weight: 600; color: #262626; }
+    .status-tag {
+      display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;
+    }
+    .wo-task { font-size: 14px; color: #262626; font-weight: 500; margin-bottom: 6px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .wo-meta { font-size: 12px; color: #8C8C8C; display: flex; flex-direction: column; gap: 3px; }
+    .wo-meta-row { display: flex; align-items: center; gap: 4px; }
+    /* 空状态 */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 48px 24px; color: #8C8C8C; text-align: center;
+    }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; margin-bottom: 8px; }
+    .btn-clear { padding: 6px 16px; background: #fff; border: 1px solid #D9D9D9;
+      border-radius: 4px; font-size: 13px; color: #595959; cursor: pointer;
+    }
+    /* Tooltip */
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft {
+      display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px;
+    }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+    /* Toast */
+    .sim-toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 8px 20px;
+      border-radius: 20px; font-size: 14px; z-index: 99999; opacity: 0; transition: all 0.3s;
+    }
+    .sim-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    /* 底部导航 */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 390px; background: #fff; border-top: 1px solid #F0F0F0;
+      display: flex; z-index: 1000;
+    }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 8px 0 6px; text-decoration: none; color: #8C8C8C;
+    }
+    .nav-item.active { color: #1677FF; }
+    .nav-icon { font-size: 20px; line-height: 1; margin-bottom: 2px; }
+    .nav-label { font-size: 10px; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <div class="top-title">工单</div>
+    <div class="sub-tabs">
+      <div class="sub-tab active" id="stab-stat" onclick="switchSubTab('stat')">统计</div>
+      <div class="sub-tab" id="stab-manage" onclick="switchSubTab('manage')">管理</div>
+    </div>
+  </div>
+
+  <div class="page-content">
+    <!-- WO-009: 统计子Tab -->
+    <div id="tab-stat">
+      <div class="wo-period-switch">
+        <button class="period-btn active" id="wo-btn-today" onclick="switchWoPeriod('today')">今日</button>
+        <button class="period-btn" id="wo-btn-history" onclick="switchWoPeriod('history')">累计</button>
+      </div>
+      <div class="stat-inner">
+        <div class="stat-cards" id="stat-cards-container"></div>
+      </div>
+    </div>
+
+    <!-- WO-010: 管理子Tab -->
+    <div id="tab-manage" style="display:none">
+      <div class="filter-row">
+        <input type="date" id="filter-date" onchange="renderList()">
+        <select id="filter-status" onchange="renderList()">
+          <option value="">全部状态</option>
+        </select>
+      </div>
+      <div id="wo-list"></div>
+    </div>
+  </div>
+
+  <!-- 底部导航：由 SIM.renderBottomNav 按角色注入 -->
+  <div id="bottom-nav-mount"></div>
+
+  <script>
+    const session = JSON.parse(localStorage.getItem('ywsf_session') || 'null');
+    if (!session) window.location.replace('login.html');
+    else {
+      const el = document.getElementById('bottom-nav-mount');
+      if (el) el.outerHTML = SIM.renderBottomNav('workorder');
+    }
+    const role = session ? session.role : 'ADMIN';
+    const userId = session ? session.user.id : 'U001';
+
+    let woPeriod = 'today'; // 今日/历史
+
+    function switchWoPeriod(p) {
+      woPeriod = p;
+      document.getElementById('wo-btn-today').classList.toggle('active', p === 'today');
+      document.getElementById('wo-btn-history').classList.toggle('active', p === 'history');
+      renderStatCards();
+    }
+
+    // 从 URL 参数读取初始状态筛选（统计卡片点击联动）
+    const params = new URLSearchParams(location.search);
+    let currentFilterStatus = params.get('status') || '';
+    let currentSubTab = params.get('tab') || 'stat';
+
+    // 管理员视角 7 状态卡片 / 执行人员 4 状态卡片
+    const adminCards = [
+      { key: 'all',           label: '全部',   color: '#262626', filterVal: '',              val: () => getStats().total },
+      { key: 'pendingAssign', label: '待指派', color: '#FA8C16', filterVal: 'PENDING_ASSIGN', val: () => getStats().pendingAssign },
+      { key: 'assigned',      label: '已指派', color: '#1677FF', filterVal: 'ASSIGNED',       val: () => getStats().assigned },
+      { key: 'inProgress',    label: '跟进中', color: '#1677FF', filterVal: 'IN_PROGRESS',    val: () => getStats().inProgress },
+      { key: 'pendingReview', label: '待复核', color: '#722ED1', filterVal: 'PENDING_REVIEW', val: () => getStats().pendingReview },
+      { key: 'rejected',      label: '已打回', color: '#F5222D', filterVal: 'REJECTED',       val: () => getStats().rejected },
+      { key: 'closed',        label: '已完成', color: '#52C41A', filterVal: 'CLOSED',         val: () => getStats().closed }
+    ];
+    // 执行人员：待跟进=ASSIGNED+REJECTED合并
+    const executorCards = [
+      { key: 'pendingFollow', label: '待跟进', color: '#FA8C16', filterVal: 'PENDING_FOLLOW', val: () => getStats().pendingFollow },
+      { key: 'inProgress',    label: '跟进中', color: '#1677FF', filterVal: 'IN_PROGRESS',    val: () => getStats().inProgress },
+      { key: 'pendingReview', label: '待复核', color: '#722ED1', filterVal: 'PENDING_REVIEW', val: () => getStats().pendingReview },
+      { key: 'closed',        label: '已完成', color: '#52C41A', filterVal: 'CLOSED',         val: () => getStats().closed }
+    ];
+
+    function getMyWorkorders() {
+      if (role === 'ADMIN') return SIM.data.workorders.filter(w => w.deptId === session.user.deptId);
+      return SIM.data.workorders.filter(w => w.assigneeId === userId);
+    }
+
+    function getStats() {
+      // 今日：使用与首页相同的 SIM.data.stats 仿真数据源
+      if (woPeriod === 'today') {
+        if (role === 'ADMIN') {
+          const d = SIM.data.stats.today.workorders;
+          return {
+            total: d.total, pendingAssign: d.pendingAssign,
+            assigned: d.assigned, inProgress: d.inProgress,
+            pendingReview: d.pendingReview, rejected: d.rejected, closed: d.closed
+          };
+        } else {
+          const d = SIM.data.statsExecutor.today.workorders;
+          return {
+            pendingFollow: d.pendingFollow, inProgress: d.inProgress,
+            pendingReview: d.pendingReview, closed: d.closed
+          };
+        }
+      }
+      // 历史（累计）：从全量工单列表实时计算
+      const wos = getMyWorkorders();
+      if (role === 'ADMIN') {
+        return {
+          total: wos.length,
+          pendingAssign: wos.filter(w => w.status === 'PENDING_ASSIGN').length,
+          assigned: wos.filter(w => w.status === 'ASSIGNED').length,
+          inProgress: wos.filter(w => w.status === 'IN_PROGRESS').length,
+          pendingReview: wos.filter(w => w.status === 'PENDING_REVIEW').length,
+          rejected: wos.filter(w => w.status === 'REJECTED').length,
+          closed: wos.filter(w => w.status === 'CLOSED').length
+        };
+      } else {
+        const pending = wos.filter(w => ['ASSIGNED', 'REJECTED'].includes(w.status)).length;
+        return {
+          pendingFollow: pending,
+          inProgress: wos.filter(w => w.status === 'IN_PROGRESS').length,
+          pendingReview: wos.filter(w => w.status === 'PENDING_REVIEW').length,
+          closed: wos.filter(w => w.status === 'CLOSED').length
+        };
+      }
+    }
+
+    // 渲染状态选项
+    function initStatusFilter() {
+      const sel = document.getElementById('filter-status');
+      sel.innerHTML = '<option value="">全部状态</option>';
+      const cards = role === 'ADMIN' ? adminCards : executorCards;
+      cards.filter(c => c.filterVal).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.filterVal;
+        opt.textContent = c.label;
+        if (c.filterVal === currentFilterStatus) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    // 渲染统计卡片 (WO-009)
+    function renderStatCards() {
+      const cards = role === 'ADMIN' ? adminCards : executorCards;
+      const container = document.getElementById('stat-cards-container');
+      container.innerHTML = cards.map(c => `
+        <div class="stat-card" id="sc-${c.key}" onclick="selectCard('${c.filterVal}')" data-field>
+          <span class="sc-num" style="color:${c.color}">${c.val()}</span>
+          <span class="sc-label">${c.label}</span>
+          <div class="ft">
+            <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.${c.key}</span></div>
+            <div><span class="ft-key">类型</span>Int</div>
+            <div><span class="ft-key">来源</span>STAT-004 COUNT WHERE status=${c.filterVal || 'ALL'}</div>
+            <div><span class="ft-key">说明</span>${c.label}工单数量，点击联动管理Tab筛选</div>
+          </div>
+        </div>
+      `).join('');
+      // 默认选中全部
+      document.getElementById('sc-' + (cards[0].key))?.classList.add('selected');
+    }
+
+    // 统计卡片点击 → 联动管理Tab + 带入筛选 (WO-009)
+    function selectCard(filterVal) {
+      currentFilterStatus = filterVal;
+      document.getElementById('filter-status').value = filterVal;
+      switchSubTab('manage');
+    }
+
+    // 切换子Tab，同步写入 URL 防止重载后丢失状态
+    function switchSubTab(tab) {
+      currentSubTab = tab;
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.replaceState(null, '', url.toString());
+      document.getElementById('stab-stat').classList.toggle('active', tab === 'stat');
+      document.getElementById('stab-manage').classList.toggle('active', tab === 'manage');
+      document.getElementById('tab-stat').style.display = tab === 'stat' ? 'block' : 'none';
+      document.getElementById('tab-manage').style.display = tab === 'manage' ? 'block' : 'none';
+      if (tab === 'manage') renderList();
+    }
+
+    // 渲染工单列表 (WO-010)
+    function renderList() {
+      const statusFilter = document.getElementById('filter-status').value;
+      currentFilterStatus = statusFilter;
+      let wos = getMyWorkorders();
+
+      // 状态筛选
+      if (statusFilter === 'PENDING_FOLLOW') {
+        wos = wos.filter(w => ['ASSIGNED', 'REJECTED'].includes(w.status));
+      } else if (statusFilter) {
+        wos = wos.filter(w => w.status === statusFilter);
+      }
+
+      // 日期筛选
+      const dateVal = document.getElementById('filter-date').value;
+      if (dateVal) {
+        wos = wos.filter(w => w.createdAt && w.createdAt.startsWith(dateVal));
+      }
+
+      const container = document.getElementById('wo-list');
+      if (!wos.length) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📭</div>
+            <p>${statusFilter || dateVal ? '没有符合条件的工单' : '暂无工单'}</p>
+            ${statusFilter || dateVal ? '<button class="btn-clear" onclick="clearFilter()">清除筛选</button>' : ''}
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = wos.map(w => {
+        const statusColor = SIM.utils.getStatusColor(w.status);
+        const statusBg = SIM.utils.getStatusBg(w.status);
+        const statusLabel = getDisplayStatus(w);
+        const assigneeText = w.assigneeName || '<span style="color:#8C8C8C">待指派</span>';
+        return `
+          <div class="wo-card" onclick="goDetail('${w.id}')">
+            <div class="wo-card-head">
+              <span class="wo-id" data-field>${w.id}
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">id</span></div>
+                  <div><span class="ft-key">类型</span>String</div>
+                  <div><span class="ft-key">来源</span>系统生成 WO-YYYY-MMDD-NNN</div>
+                  <div><span class="ft-key">说明</span>工单唯一编号</div>
+                </div>
+              </span>
+              <span class="status-tag" style="color:${statusColor};background:${statusBg}" data-field>${statusLabel}
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">status</span></div>
+                  <div><span class="ft-key">类型</span>Enum</div>
+                  <div><span class="ft-key">来源</span>流转更新</div>
+                  <div><span class="ft-key">说明</span>工单当前状态，见工单状态机</div>
+                </div>
+              </span>
+            </div>
+            <div class="wo-task" data-field>${w.taskName}
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">task_name</span></div>
+                <div><span class="ft-key">类型</span>String</div>
+                <div><span class="ft-key">来源</span>通过flight_id关联任务配置</div>
+                <div><span class="ft-key">说明</span>工单来源任务名称</div>
+              </div>
+            </div>
+            <div class="wo-meta">
+              <div class="wo-meta-row">
+                <span>📍</span>
+                <span data-field>${w.stationAddr}<div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">station_addr</span></div>
+                  <div><span class="ft-key">类型</span>String</div>
+                  <div><span class="ft-key">来源</span>任务配置继承</div>
+                  <div><span class="ft-key">说明</span>任务站点位置，不可修改</div>
+                </div></span>
+              </div>
+              <div class="wo-meta-row">
+                <span>👤</span>
+                <span>${assigneeText}</span>
+              </div>
+              <div class="wo-meta-row">
+                <span>⚠️</span>
+                <span data-field>${w.anomalyMedia.length}处异常<div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">anomaly_media_ids.length</span></div>
+                  <div><span class="ft-key">类型</span>Int</div>
+                  <div><span class="ft-key">来源</span>上游触发，Ref[]→Media</div>
+                  <div><span class="ft-key">说明</span>关联确认异常素材数量</div>
+                </div></span>
+                <span style="margin-left:8px;color:#BFBFBF">· ${w.createdAt}</span>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function getDisplayStatus(w) {
+      if (role === 'EXECUTOR' && ['ASSIGNED', 'REJECTED'].includes(w.status)) return '待跟进';
+      return SIM.utils.getStatusLabel(w.status);
+    }
+
+    function clearFilter() {
+      document.getElementById('filter-status').value = '';
+      document.getElementById('filter-date').value = '';
+      currentFilterStatus = '';
+      renderList();
+    }
+
+    function goDetail(id) {
+      SIM.nav.push('workorder_detail.html?id=' + id);
+    }
+
+    // 初始化
+    initStatusFilter();
+    renderStatCards();
+    if (currentSubTab === 'manage') switchSubTab('manage');
+    else switchSubTab('stat');
+
+    // SimulationPanel
+    SIM.createPanel({});
+  </script>
+</body>
+</html>

@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 首页</title>
+  <script src="../js/common.js"></script>
+  <style id="page-styles">
+    /* NAV-001: 底部导航 & 基础布局 */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      background: #F0F0F0;
+      min-height: 100%;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      /* 与 .page-content 同色：避免短页时 min-height:100vh 露出白底断层 */
+      background: #F5F5F5;
+      color: #262626; font-size: 14px;
+      max-width: 390px; margin: 0 auto; min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06);
+    }
+    .top-bar {
+      background: #1677FF; color: #fff; padding: 12px 16px 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .top-bar .title { font-size: 17px; font-weight: 700; }
+    .top-bar .user-info { font-size: 12px; opacity: 0.9; display: flex; align-items: center; gap: 6px; }
+    .role-badge {
+      background: rgba(255,255,255,0.2); border-radius: 10px;
+      padding: 2px 8px; font-size: 11px;
+    }
+    .page-content {
+      background: #F5F5F5;
+      padding-bottom: 64px;
+    }
+
+    /* 今日/累计切换 */
+    .period-switch {
+      background: #fff; padding: 10px 16px; display: flex; gap: 8px;
+      border-bottom: 1px solid #F0F0F0;
+    }
+    .period-btn {
+      padding: 5px 20px; border-radius: 14px; font-size: 13px;
+      border: 1px solid #D9D9D9; background: #fff; color: #595959; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .period-btn.active { background: #1677FF; color: #fff; border-color: #1677FF; }
+
+    /* 数据看板卡片 */
+    .board-card {
+      background: #fff; border-radius: 8px; margin: 8px; padding: 14px 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .board-header { display: flex; align-items: center; margin-bottom: 12px; }
+    .board-title { font-size: 15px; font-weight: 600; color: #262626; }
+    .board-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .board-grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .stat-item { text-align: center; }
+    .stat-num {
+      font-size: 22px; font-weight: 700; color: #1677FF; line-height: 1.2;
+      display: block; font-variant-numeric: tabular-nums;
+    }
+    .stat-num.orange { color: #FA8C16; }
+    .stat-num.green { color: #52C41A; }
+    .stat-num.purple { color: #722ED1; }
+    .stat-num.red { color: #F5222D; }
+    .stat-num.gray { color: #8C8C8C; }
+    .stat-label { font-size: 11px; color: #8C8C8C; margin-top: 2px; display: block; }
+
+    /* 功能入口 */
+    .entry-section { margin: 8px; }
+    .entry-section-title { font-size: 13px; color: #8C8C8C; margin-bottom: 8px; padding: 0 4px; }
+    .entry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .entry-card {
+      background: #fff; border-radius: 8px; padding: 16px 12px;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      text-decoration: none; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .entry-card:active { transform: scale(0.97); }
+    .entry-card .entry-icon { font-size: 28px; }
+    .entry-card .entry-name { font-size: 14px; color: #262626; font-weight: 500; }
+    .entry-card .entry-desc { font-size: 11px; color: #8C8C8C; text-align: center; }
+
+    /* 底部导航 NAV-001 */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 390px; background: #fff;
+      border-top: 1px solid #F0F0F0; display: flex; z-index: 1000;
+    }
+    .nav-item {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 8px 0 6px; text-decoration: none; color: #8C8C8C;
+    }
+    .nav-item.active { color: #1677FF; }
+    .nav-icon { font-size: 20px; line-height: 1; margin-bottom: 2px; }
+    .nav-label { font-size: 10px; }
+
+    /* Tooltip */
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft {
+      display: none; position: absolute; left: 0; top: calc(100% + 6px);
+      z-index: 9999; background: #1a1a1a; color: #eee; border-radius: 6px;
+      padding: 10px 12px; font-size: 12px; line-height: 1.8; white-space: nowrap;
+      pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px;
+    }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+
+    /* Toast */
+    .sim-toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 8px 20px;
+      border-radius: 20px; font-size: 14px; z-index: 99999;
+      opacity: 0; transition: all 0.3s ease;
+    }
+    .sim-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+  <!-- 顶部栏 -->
+  <div class="top-bar">
+    <div class="title">一网统飞</div>
+    <div class="user-info">
+      <span id="user-name">张三</span>
+      <span class="role-badge" id="role-badge">交通局管理员</span>
+    </div>
+  </div>
+
+  <div class="page-content">
+    <!-- 今日/累计切换 (NAV-002) -->
+    <div class="period-switch">
+      <button class="period-btn active" id="btn-today" onclick="switchPeriod('today')">今日</button>
+      <button class="period-btn" id="btn-total" onclick="switchPeriod('total')">累计</button>
+    </div>
+
+    <!-- 数据看板区 (STAT-002/003/004) — 管理员视角 -->
+    <div id="boards-admin">
+      <!-- STAT-002 飞行任务看板 -->
+      <div class="board-card">
+        <div class="board-header">
+          <span class="board-title">飞行任务</span>
+        </div>
+        <div class="board-grid board-grid-4">
+          <div class="stat-item" data-field>
+            <span class="stat-num" id="ft-total">—</span>
+            <span class="stat-label">全部</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">flights.total</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-002 架次统计</div>
+              <div><span class="ft-key">说明</span>本局全部架次数量</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num" id="ft-progress">—</span>
+            <span class="stat-label">执行中</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">flights.inProgress</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-002 COUNT WHERE status=IN_PROGRESS</div>
+              <div><span class="ft-key">说明</span>执行中架次数量（口径：待执行/执行中/已完成）</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num" id="ft-pending">—</span>
+            <span class="stat-label">待执行</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">flights.pending</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-002 COUNT WHERE status=PENDING</div>
+              <div><span class="ft-key">说明</span>待执行架次数量（已排期未起飞）</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num green" id="ft-completed">—</span>
+            <span class="stat-label">已完成</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">flights.completed</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-002 COUNT WHERE status=COMPLETED</div>
+              <div><span class="ft-key">说明</span>已完成架次数量</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAT-003 飞行成果看板 -->
+      <div class="board-card">
+        <div class="board-header">
+          <span class="board-title">飞行成果</span>
+        </div>
+        <div class="board-grid board-grid-4">
+          <div class="stat-item" data-field>
+            <span class="stat-num green" id="rs-completed">—</span>
+            <span class="stat-label">已完成</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">results.completed</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-003 已完成架次数</div>
+              <div><span class="ft-key">说明</span>status=COMPLETED的架次数</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num" id="rs-photos">—</span>
+            <span class="stat-label">照片</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">results.photos</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-003 归档照片总数</div>
+              <div><span class="ft-key">说明</span>已归档的照片素材数量</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num" id="rs-videos">—</span>
+            <span class="stat-label">视频</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">results.videos</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-003 归档视频总数</div>
+              <div><span class="ft-key">说明</span>已归档的视频素材数量</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num orange" id="rs-anomalies">—</span>
+            <span class="stat-label">异常</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">results.anomalies</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-003 COUNT WHERE label=CONFIRMED</div>
+              <div><span class="ft-key">说明</span>AI识别并确认的异常素材总数</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAT-004 工单管理看板 (管理员视角) -->
+      <div class="board-card">
+        <div class="board-header">
+          <span class="board-title">工单管理</span>
+        </div>
+        <div class="board-grid">
+          <div class="stat-item" data-field>
+            <span class="stat-num" id="wo-total">—</span>
+            <span class="stat-label">全部</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.total</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-004 全量工单数</div>
+              <div><span class="ft-key">说明</span>本局全部工单数量</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num orange" id="wo-pa">—</span>
+            <span class="stat-label">待指派</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.pendingAssign</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-004 COUNT WHERE status=PENDING_ASSIGN</div>
+              <div><span class="ft-key">说明</span>待指派执行人的工单数量</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num" id="wo-assigned">—</span>
+            <span class="stat-label">已指派</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.assigned</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-004 COUNT WHERE status=ASSIGNED</div>
+              <div><span class="ft-key">说明</span>已指派但未开始跟进的工单数量</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num" id="wo-ip">—</span>
+            <span class="stat-label">跟进中</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.inProgress</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-004 COUNT WHERE status=IN_PROGRESS</div>
+              <div><span class="ft-key">说明</span>执行人已打开、正在跟进的工单数量</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num purple" id="wo-pr">—</span>
+            <span class="stat-label">待复核</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.pendingReview</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-004 COUNT WHERE status=PENDING_REVIEW</div>
+              <div><span class="ft-key">说明</span>执行人已提交、等待管理员复核的工单数量</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num red" id="wo-rej">—</span>
+            <span class="stat-label">已打回</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.rejected</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-004 COUNT WHERE status=REJECTED</div>
+              <div><span class="ft-key">说明</span>被管理员打回、待执行人重新处理的工单数量</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num green" id="wo-closed">—</span>
+            <span class="stat-label">已完成</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.closed</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-004 COUNT WHERE status=CLOSED</div>
+              <div><span class="ft-key">说明</span>复核通过、已关闭的工单数量（终态）</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 数据看板区 — 执行人员视角 -->
+    <div id="boards-executor" style="display:none">
+      <div class="board-card">
+        <div class="board-header">
+          <span class="board-title">工单管理</span>
+        </div>
+        <div class="board-grid board-grid-4">
+          <div class="stat-item" data-field>
+            <span class="stat-num orange" id="ex-pf">—</span>
+            <span class="stat-label">待跟进</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.pendingFollow</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-004 执行人员 COUNT WHERE status IN (ASSIGNED,REJECTED)</div>
+              <div><span class="ft-key">说明</span>待跟进=ASSIGNED+REJECTED合并展示</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num" id="ex-ip">—</span>
+            <span class="stat-label">跟进中</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.inProgress</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-004 COUNT WHERE status=IN_PROGRESS (本人)</div>
+              <div><span class="ft-key">说明</span>执行人已打开、正在跟进的工单数量</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num purple" id="ex-pr">—</span>
+            <span class="stat-label">待复核</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.pendingReview</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-004 COUNT WHERE status=PENDING_REVIEW (本人)</div>
+              <div><span class="ft-key">说明</span>已提交等待管理员复核的工单数量</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num green" id="ex-closed">—</span>
+            <span class="stat-label">已完成</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.closed</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-004 COUNT WHERE status=CLOSED (本人)</div>
+              <div><span class="ft-key">说明</span>复核通过、已完成的工单数量</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 功能入口区 (NAV-002) -->
+    <div class="entry-section">
+      <div class="entry-grid">
+        <a class="entry-card" onclick="SIM.nav.push('hazard.html')">
+          <span class="entry-icon">⚠️</span>
+          <span class="entry-name">隐患上报</span>
+          <span class="entry-desc">上报现场隐患</span>
+        </a>
+        <!-- 需求申报仅管理员可见 -->
+        <a class="entry-card" id="entry-req" onclick="SIM.nav.push('request.html')">
+          <span class="entry-icon">📝</span>
+          <span class="entry-name">需求申报</span>
+          <span class="entry-desc">申报飞行需求</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部导航 (NAV-001)，由 SIM.renderBottomNav 按角色注入 -->
+  <div id="bottom-nav-mount"></div>
+
+  <script>
+    // 读取会话
+    const session = JSON.parse(localStorage.getItem('ywsf_session') || 'null');
+    if (!session) { window.location.replace('login.html'); }
+    else {
+      (function mountNav() {
+        const el = document.getElementById('bottom-nav-mount');
+        if (el) el.outerHTML = SIM.renderBottomNav('home');
+      })();
+    }
+    const role = session ? session.role : 'ADMIN';
+    const userName = session ? session.user.name : '张三';
+
+    document.getElementById('user-name').textContent = userName;
+    document.getElementById('role-badge').textContent = role === 'ADMIN' ? '交通局管理员' : '交通局执行人员';
+
+    let currentPeriod = 'today';
+
+    function switchPeriod(period) {
+      currentPeriod = period;
+      document.getElementById('btn-today').classList.toggle('active', period === 'today');
+      document.getElementById('btn-total').classList.toggle('active', period === 'total');
+      renderBoards();
+    }
+
+    function renderBoards() {
+      if (role === 'ADMIN') {
+        document.getElementById('boards-admin').style.display = 'block';
+        document.getElementById('boards-executor').style.display = 'none';
+        document.getElementById('entry-req').style.display = 'flex';
+
+        const d = SIM.data.stats[currentPeriod];
+        document.getElementById('ft-total').textContent = d.flights.total;
+        document.getElementById('ft-progress').textContent = d.flights.inProgress;
+        document.getElementById('ft-pending').textContent = d.flights.pending;
+        document.getElementById('ft-completed').textContent = d.flights.completed;
+        document.getElementById('rs-completed').textContent = d.results.completed;
+        document.getElementById('rs-photos').textContent = d.results.photos;
+        document.getElementById('rs-videos').textContent = d.results.videos;
+        document.getElementById('rs-anomalies').textContent = d.results.anomalies;
+        document.getElementById('wo-total').textContent = d.workorders.total;
+        document.getElementById('wo-pa').textContent = d.workorders.pendingAssign;
+        document.getElementById('wo-assigned').textContent = d.workorders.assigned;
+        document.getElementById('wo-ip').textContent = d.workorders.inProgress;
+        document.getElementById('wo-pr').textContent = d.workorders.pendingReview;
+        document.getElementById('wo-rej').textContent = d.workorders.rejected;
+        document.getElementById('wo-closed').textContent = d.workorders.closed;
+      } else {
+        document.getElementById('boards-admin').style.display = 'none';
+        document.getElementById('boards-executor').style.display = 'block';
+        document.getElementById('entry-req').style.display = 'none';
+
+        const d = SIM.data.statsExecutor[currentPeriod];
+        document.getElementById('ex-pf').textContent = d.workorders.pendingFollow;
+        document.getElementById('ex-ip').textContent = d.workorders.inProgress;
+        document.getElementById('ex-pr').textContent = d.workorders.pendingReview;
+        document.getElementById('ex-closed').textContent = d.workorders.closed;
+      }
+    }
+
+    renderBoards();
+
+    // SimulationPanel
+    SIM.createPanel({
+      items: [
+        {
+          label: '切换角色（返回首页）',
+          html: ''
+        }
+      ]
+    });
+  </script>
+</body>
+</html>

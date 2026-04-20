@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 修改密码</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #F0F0F0; min-height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: #F5F5F5; color: #262626; font-size: 14px; max-width: 390px; margin: 0 auto; min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06); }
+    .top-bar { background: #fff; border-bottom: 1px solid #F0F0F0; display: flex; align-items: center;
+      padding: 0 16px; height: 48px; position: sticky; top: 0; z-index: 100; }
+    .back-btn { background: none; border: none; font-size: 24px; color: #262626; cursor: pointer; padding: 0; width: 32px; }
+    .top-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; }
+    .top-right { width: 32px; }
+    .card { background: #fff; border-radius: 8px; margin: 12px 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .form-item { margin-bottom: 16px; }
+    .form-label { font-size: 13px; color: #595959; margin-bottom: 6px; display: block; }
+    input[type=password] { width: 100%; padding: 10px 12px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 14px; color: #262626; outline: none; background: #fff; }
+    input[type=password]:focus { border-color: #1677FF; }
+    input.error { border-color: #F5222D; }
+    .err-msg { color: #F5222D; font-size: 12px; margin-top: 4px; display: none; }
+    .btn-primary { width: 100%; padding: 12px; background: #1677FF; color: #fff; border: none;
+      border-radius: 4px; font-size: 15px; font-weight: 500; cursor: pointer; }
+    .btn-primary:active { opacity: 0.8; }
+    .sim-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
+      font-size: 14px; z-index: 99999; opacity: 0; transition: all 0.3s; }
+    .sim-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <button class="back-btn" onclick="SIM.nav.back()">‹</button>
+    <div class="top-title">修改密码</div>
+    <div class="top-right"></div>
+  </div>
+
+  <div class="card">
+    <div class="form-item">
+      <label class="form-label">原密码 <span style="color:#F5222D">*</span></label>
+      <input type="password" id="old-pwd" placeholder="请输入原密码" data-field>
+      <div class="ft">
+        <div><span class="ft-key">字段名</span><span class="ft-mono">old_password</span></div>
+        <div><span class="ft-key">类型</span>String</div>
+        <div><span class="ft-key">来源</span>用户输入</div>
+        <div><span class="ft-key">说明</span>当前密码，必填，传输前加密</div>
+      </div>
+      <div class="err-msg" id="err-old">请输入原密码</div>
+    </div>
+    <div class="form-item">
+      <label class="form-label">新密码 <span style="color:#F5222D">*</span></label>
+      <input type="password" id="new-pwd" placeholder="请输入新密码" data-field>
+      <div class="ft">
+        <div><span class="ft-key">字段名</span><span class="ft-mono">new_password</span></div>
+        <div><span class="ft-key">类型</span>String</div>
+        <div><span class="ft-key">来源</span>用户输入</div>
+        <div><span class="ft-key">说明</span>新密码，必填，需与原密码不同</div>
+      </div>
+      <div class="err-msg" id="err-new">请输入新密码</div>
+      <div class="err-msg" id="err-same">新密码不能与原密码相同</div>
+    </div>
+    <div class="form-item">
+      <label class="form-label">确认新密码 <span style="color:#F5222D">*</span></label>
+      <input type="password" id="confirm-pwd" placeholder="请再次输入新密码">
+      <div class="err-msg" id="err-confirm">两次密码输入不一致</div>
+    </div>
+    <button class="btn-primary" onclick="doSubmit()">确认修改</button>
+  </div>
+
+  <script>
+    SIM.utils.toast = function(msg) {
+      const el = document.createElement('div'); el.className = 'sim-toast';
+      el.textContent = msg; document.body.appendChild(el);
+      setTimeout(() => el.classList.add('show'), 10);
+      setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2000);
+    };
+
+    function doSubmit() {
+      const old = document.getElementById('old-pwd').value.trim();
+      const nw = document.getElementById('new-pwd').value.trim();
+      const cf = document.getElementById('confirm-pwd').value.trim();
+      ['err-old','err-new','err-same','err-confirm'].forEach(id => document.getElementById(id).style.display = 'none');
+      let ok = true;
+      if (!old) { document.getElementById('err-old').style.display = 'block'; ok = false; }
+      if (!nw) { document.getElementById('err-new').style.display = 'block'; ok = false; }
+      if (nw && old && nw === old) { document.getElementById('err-same').style.display = 'block'; ok = false; }
+      if (nw && cf && nw !== cf) { document.getElementById('err-confirm').style.display = 'block'; ok = false; }
+      if (!ok) return;
+      // MOCK_SIMULATION: 修改密码API仿真
+      SIM.utils.toast('密码修改成功');
+      setTimeout(() => SIM.nav.back(), 1500);
+    }
+
+    SIM.createPanel({});
+  </script>
+</body>
+</html>

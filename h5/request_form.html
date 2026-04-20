@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 新增需求申报</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #F0F0F0; min-height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: #F5F5F5; color: #262626; font-size: 14px; max-width: 390px; margin: 0 auto; min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06); }
+    .top-bar { background: #fff; border-bottom: 1px solid #F0F0F0; display: flex; align-items: center;
+      padding: 0 16px; height: 48px; position: sticky; top: 0; z-index: 100; }
+    .back-btn { background: none; border: none; font-size: 24px; cursor: pointer; padding: 0; width: 32px; }
+    .top-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; }
+    .page-content { padding: 12px; padding-bottom: 100px; }
+    .card { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 8px; }
+    .form-item { margin-bottom: 16px; }
+    .form-label { font-size: 13px; color: #595959; margin-bottom: 6px; }
+    .form-label.row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .required { color: #F5222D; }
+    .char-count { color: #BFBFBF; font-size: 12px; }
+    select, textarea { width: 100%; padding: 9px 12px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 14px; color: #262626; outline: none; background: #fff; font-family: inherit; }
+    select:focus, textarea:focus { border-color: #1677FF; }
+    select.error, textarea.error { border-color: #F5222D; }
+    textarea { resize: vertical; }
+    .err-msg { color: #F5222D; font-size: 12px; margin-top: 4px; display: none; }
+    .bottom-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 390px; background: #fff; border-top: 1px solid #F0F0F0;
+      padding: 10px 16px; z-index: 1000; }
+    .btn-primary { width: 100%; padding: 12px; background: #1677FF; color: #fff; border: none;
+      border-radius: 4px; font-size: 15px; font-weight: 500; cursor: pointer; }
+    .btn-primary:disabled { background: #D9D9D9; cursor: not-allowed; }
+    .sim-toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
+      font-size: 14px; z-index: 99999; opacity: 0; transition: all 0.3s; }
+    .sim-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <button class="back-btn" onclick="SIM.nav.back()">‹</button>
+    <div class="top-title">新增需求申报</div>
+    <div style="width:32px"></div>
+  </div>
+  <div class="page-content">
+    <div class="card">
+      <div class="form-item">
+        <div class="form-label">飞行区域 <span class="required">*</span></div>
+        <div data-field style="position:relative">
+          <select id="f-station" style="width:100%;padding:9px 12px;border:1px solid #D9D9D9;border-radius:4px;font-size:14px;color:#262626;outline:none;background:#fff;font-family:inherit">
+            <option value="">请选择站点</option>
+            ${SIM.data.stations.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+          </select>
+          <div class="ft">
+            <div><span class="ft-key">字段名</span><span class="ft-mono">station_id</span></div>
+            <div><span class="ft-key">类型</span>Ref→Station</div>
+            <div><span class="ft-key">来源</span>表单提交，从已有站点选择，必填</div>
+            <div><span class="ft-key">说明</span>飞行区域站点；地图站点选择仿真为下拉</div>
+          </div>
+        </div>
+        <div class="err-msg" id="err-station">请选择飞行区域</div>
+      </div>
+      <div class="form-item">
+        <div class="form-label row">
+          <span>任务描述 <span class="required">*</span></span>
+          <span class="char-count" id="cc-task">0/500</span>
+        </div>
+        <div data-field style="position:relative">
+          <textarea id="f-task" rows="4" placeholder="描述本次飞行任务需求（必填，最多500字）" maxlength="500"
+            oninput="document.getElementById('cc-task').textContent=this.value.length+'/500'"
+            style="width:100%;padding:9px 12px;border:1px solid #D9D9D9;border-radius:4px;font-size:14px;color:#262626;outline:none;background:#fff;font-family:inherit;resize:vertical"></textarea>
+          <div class="ft">
+            <div><span class="ft-key">字段名</span><span class="ft-mono">task_desc</span></div>
+            <div><span class="ft-key">类型</span>String</div>
+            <div><span class="ft-key">来源</span>表单提交，必填 max 500字</div>
+            <div><span class="ft-key">说明</span>任务描述</div>
+          </div>
+        </div>
+        <div class="err-msg" id="err-task">请填写任务描述</div>
+      </div>
+      <div class="form-item">
+        <div class="form-label row">
+          <span>任务时间 <span class="required">*</span></span>
+          <span class="char-count" id="cc-time">0/200</span>
+        </div>
+        <div data-field style="position:relative">
+          <textarea id="f-time" rows="2" placeholder="描述希望执行的时间（必填，最多200字）" maxlength="200"
+            oninput="document.getElementById('cc-time').textContent=this.value.length+'/200'"
+            style="width:100%;padding:9px 12px;border:1px solid #D9D9D9;border-radius:4px;font-size:14px;color:#262626;outline:none;background:#fff;font-family:inherit;resize:vertical"></textarea>
+          <div class="ft">
+            <div><span class="ft-key">字段名</span><span class="ft-mono">time_desc</span></div>
+            <div><span class="ft-key">类型</span>String</div>
+            <div><span class="ft-key">来源</span>表单提交，必填 max 200字</div>
+            <div><span class="ft-key">说明</span>任务时间描述</div>
+          </div>
+        </div>
+        <div class="err-msg" id="err-time">请填写任务时间</div>
+      </div>
+      <div class="form-item">
+        <div class="form-label row">
+          <span>成果要求 <span class="required">*</span></span>
+          <span class="char-count" id="cc-deliv">0/500</span>
+        </div>
+        <div data-field style="position:relative">
+          <textarea id="f-deliv" rows="4" placeholder="描述期望的飞行成果（必填，最多500字）" maxlength="500"
+            oninput="document.getElementById('cc-deliv').textContent=this.value.length+'/500'"
+            style="width:100%;padding:9px 12px;border:1px solid #D9D9D9;border-radius:4px;font-size:14px;color:#262626;outline:none;background:#fff;font-family:inherit;resize:vertical"></textarea>
+          <div class="ft">
+            <div><span class="ft-key">字段名</span><span class="ft-mono">deliverable_desc</span></div>
+            <div><span class="ft-key">类型</span>String</div>
+            <div><span class="ft-key">来源</span>表单提交，必填 max 500字</div>
+            <div><span class="ft-key">说明</span>成果要求描述</div>
+          </div>
+        </div>
+        <div class="err-msg" id="err-deliv">请填写成果要求</div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom-bar">
+    <button class="btn-primary" id="submit-btn" onclick="doSubmit()">提交申报</button>
+  </div>
+
+  <script>
+    let submitting = false;
+    SIM.utils.toast = function(msg) {
+      const el = document.createElement('div'); el.className = 'sim-toast'; el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.classList.add('show'), 10);
+      setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2000);
+    };
+
+    function doSubmit() {
+      if (submitting) return;
+      const fields = ['err-station','err-task','err-time','err-deliv'];
+      fields.forEach(id => document.getElementById(id).style.display = 'none');
+      const stationId = document.getElementById('f-station').value;
+      const taskDesc = document.getElementById('f-task').value.trim();
+      const timeDesc = document.getElementById('f-time').value.trim();
+      const delivDesc = document.getElementById('f-deliv').value.trim();
+      let ok = true;
+      if (!stationId) { document.getElementById('err-station').style.display = 'block'; ok = false; }
+      if (!taskDesc) { document.getElementById('err-task').style.display = 'block'; ok = false; }
+      if (!timeDesc) { document.getElementById('err-time').style.display = 'block'; ok = false; }
+      if (!delivDesc) { document.getElementById('err-deliv').style.display = 'block'; ok = false; }
+      if (!ok) return;
+      submitting = true;
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true; btn.textContent = '提交中...';
+      // MOCK_SIMULATION
+      setTimeout(() => {
+        const station = SIM.data.stations.find(s => s.id === stationId);
+        SIM.data.requests.unshift({
+          id: 'REQ-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-00' + (SIM.data.requests.length + 1),
+          deptId: 'D001', dept: '龙岗区交通局',
+          applicantId: 'U001', applicantName: '张三',
+          stationId, stationName: station?.name || stationId,
+          taskDesc, timeDesc, deliverableDesc: delivDesc,
+          status: 'SUBMITTED',
+          acceptedAt: null, rejectedAt: null, rejectNote: null,
+          linkedTaskId: null, resolvedDesc: null, resolvedAt: null,
+          createdAt: new Date().toISOString().slice(0,16).replace('T',' ')
+        });
+        SIM.utils.toast('申报已提交');
+        setTimeout(() => SIM.nav.back(), 1500);
+      }, 600);
+    }
+
+    SIM.createPanel({});
+  </script>
+</body>
+</html>

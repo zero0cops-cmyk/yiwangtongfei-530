@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 实时视频</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #F0F0F0; min-height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: #F5F5F5; color: #262626; max-width: 390px; margin: 0 auto; min-height: 100vh;
+      display: flex; flex-direction: column; }
+    .top-bar { background: #fff; border-bottom: 1px solid #F0F0F0; display: flex; align-items: center;
+      padding: 0 16px; height: 48px; flex-shrink: 0; }
+    .back-btn { background: none; border: none; font-size: 24px; color: #262626; cursor: pointer; padding: 0; width: 32px; }
+    .top-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; color: #262626; }
+    .video-container {
+      position: relative; width: 100%; flex: 1; min-height: 0; display: flex; flex-direction: column;
+      padding: 8px 8px 0;
+    }
+    .video-sim {
+      width: 100%; flex: 1; min-height: 240px; position: relative; overflow: hidden;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+    }
+    .video-overlay {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 8px;
+    }
+    .live-badge {
+      position: absolute; top: 12px; left: 12px;
+      background: #F5222D; color: #fff; font-size: 11px; font-weight: 700;
+      padding: 2px 8px; border-radius: 3px; animation: blink 1.2s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    .sim-badge {
+      position: absolute; top: 12px; right: 12px;
+      background: rgba(255,255,255,0.15); color: #fff; font-size: 11px;
+      padding: 3px 8px; border-radius: 10px;
+    }
+    .drone-icon { font-size: 64px; animation: hover 3s ease-in-out infinite; }
+    @keyframes hover { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    .scan-line {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(22,119,255,0.8), transparent);
+      animation: scan 2s linear infinite;
+    }
+    @keyframes scan { from{top:0} to{top:100%} }
+    .video-label { font-size: 13px; color: rgba(255,255,255,0.7); }
+    .sim-label-big { font-size: 15px; color: #7dd3fc; font-weight: 600; }
+
+    .info-bar {
+      background: #fff; margin: 8px; padding: 12px 16px; border-radius: 8px;
+      border: 1px solid #F0F0F0; flex-shrink: 0;
+    }
+    .info-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .flight-id { font-size: 14px; font-weight: 600; color: #262626; }
+    .flight-task { font-size: 12px; color: #8C8C8C; }
+    .status-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #52C41A; }
+
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+  </style>
+</head>
+<body>
+  <script>SIM.guardExecutorNoTaskMonitorPages();</script>
+  <div class="top-bar">
+    <button class="back-btn" onclick="SIM.nav.back()">‹</button>
+    <div class="top-title">实时视频</div>
+    <div style="width:32px"></div>
+  </div>
+  <div class="video-container">
+    <div class="video-sim">
+      <div class="scan-line"></div>
+      <div class="live-badge">● LIVE</div>
+      <div class="sim-badge">仿真</div>
+      <div class="video-overlay">
+        <div class="drone-icon">🚁</div>
+        <div class="sim-label-big">实时视频</div>
+        <div class="video-label">当前为仿真画面</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-bar">
+    <div class="info-row">
+      <span class="flight-id" data-field id="fi-id">—
+        <div class="ft">
+          <div><span class="ft-key">字段名</span><span class="ft-mono">video_stream</span></div>
+          <div><span class="ft-key">类型</span>Ref→Stream|null</div>
+          <div><span class="ft-key">来源</span>飞行器上报，执行中时有效，单路</div>
+          <div><span class="ft-key">说明</span>实时视频，当前为仿真</div>
+        </div>
+      </span>
+      <span class="status-chip">● 执行中</span>
+    </div>
+    <div class="flight-task" id="fi-task">—</div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const flight = SIM.utils.getFlightById(params.get('id')) || SIM.data.flights.find(f => f.status === 'IN_PROGRESS');
+    if (flight) {
+      document.getElementById('fi-id').childNodes[0].textContent = flight.id;
+      document.getElementById('fi-task').textContent = flight.taskName + '  [执行中] ' + (flight.progress || 0) + '%';
+    }
+
+    SIM.createPanel({
+      items: [{ label: 'MON-003 视频仿真', html: `
+        <div style="font-size:11px;color:#8C8C8C;line-height:1.6">
+          当前为仿真画面，正式环境接入真实视频流。
+        </div>
+      `}]
+    });
+  </script>
+</body>
+</html>

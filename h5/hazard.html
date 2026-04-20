@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 隐患上报</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #F0F0F0; min-height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: #F5F5F5; color: #262626; font-size: 14px; max-width: 390px; margin: 0 auto; min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06); }
+    .top-bar { background: #fff; border-bottom: 1px solid #F0F0F0; display: flex; align-items: center;
+      padding: 0 16px; height: 48px; position: sticky; top: 0; z-index: 100; }
+    .back-btn { background: none; border: none; font-size: 24px; color: #262626; cursor: pointer; padding: 0; width: 32px; }
+    .top-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; }
+    .page-content { padding: 8px; padding-bottom: 24px; }
+    .filter-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .filter-row select { flex: 1; padding: 7px 10px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 13px; outline: none; background: #fff; }
+    .filter-row select:focus { border-color: #1677FF; }
+    .haz-card { background: #fff; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06); cursor: pointer; transition: transform 0.15s; }
+    .haz-card:active { transform: scale(0.99); }
+    .hc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .hc-id { font-size: 13px; font-weight: 600; color: #262626; }
+    .type-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;
+      background: #FFF7E6; color: #FA8C16; }
+    .hc-meta { font-size: 12px; color: #8C8C8C; display: flex; flex-direction: column; gap: 3px; }
+    .hc-meta-row { display: flex; align-items: center; gap: 4px; }
+    .deleted-overlay { opacity: 0.5; }
+    .deleted-badge { font-size: 11px; color: #8C8C8C; background: #F5F5F5; border-radius: 4px; padding: 1px 6px; }
+    .fab { position: fixed; bottom: 24px; right: max(16px, calc((100vw - 390px) / 2 + 16px)); width: 48px; height: 48px; border-radius: 50%;
+      background: #1677FF; color: #fff; border: none; cursor: pointer; font-size: 24px;
+      box-shadow: 0 3px 12px rgba(22,119,255,0.4); display: flex; align-items: center; justify-content: center; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; padding: 48px 24px; color: #8C8C8C; }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .sim-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
+      font-size: 14px; z-index: 99999; opacity: 0; transition: all 0.3s; }
+    .sim-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <button class="back-btn" onclick="SIM.nav.back()">‹</button>
+    <div class="top-title">隐患上报</div>
+    <div style="width:32px"></div>
+  </div>
+
+  <div class="page-content">
+    <div class="filter-row">
+      <select id="filter-date-type" onchange="renderList()">
+        <option value="">全部时间</option>
+        <option value="today">今日</option>
+        <option value="week">本周</option>
+      </select>
+      <select id="filter-type" onchange="renderList()">
+        <option value="">全部类型</option>
+        <option value="路面损坏">路面损坏</option>
+        <option value="水质异常">水质异常</option>
+        <option value="火情隐患">火情隐患</option>
+        <option value="违规排放">违规排放</option>
+        <option value="管道渗漏">管道渗漏</option>
+        <option value="其他">其他</option>
+      </select>
+    </div>
+    <div id="haz-list"></div>
+  </div>
+
+  <button class="fab" onclick="SIM.nav.push('hazard_form.html')">+</button>
+
+  <script>
+    const session = JSON.parse(localStorage.getItem('ywsf_session') || 'null');
+    if (!session) window.location.replace('login.html');
+    const role = session ? session.role : 'ADMIN';
+    const userId = session ? session.user.id : 'U001';
+
+    SIM.utils.toast = function(msg) {
+      const el = document.createElement('div'); el.className = 'sim-toast'; el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.classList.add('show'), 10);
+      setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2000);
+    };
+
+    function getHazards() {
+      // 管理员：本局全部；执行人员：仅自己上报
+      if (role === 'ADMIN') return SIM.data.hazards.filter(h => h.deptId === session.user.deptId);
+      return SIM.data.hazards.filter(h => h.reporterId === userId);
+    }
+
+    function renderList() {
+      const typeFilter = document.getElementById('filter-type').value;
+      const dateFilter = document.getElementById('filter-date-type').value;
+      let hazards = getHazards();
+      if (typeFilter) hazards = hazards.filter(h => h.type === typeFilter);
+      if (dateFilter) {
+        const today = new Date().toISOString().slice(0, 10);
+        const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+        if (dateFilter === 'today') hazards = hazards.filter(h => h.createdAt && h.createdAt.startsWith(today));
+        if (dateFilter === 'week') hazards = hazards.filter(h => h.createdAt && h.createdAt.slice(0, 10) >= weekAgo);
+      }
+      const container = document.getElementById('haz-list');
+      if (!hazards.length) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p>暂无隐患记录</p></div>`;
+        return;
+      }
+      container.innerHTML = hazards.map(h => {
+        const isDeleted = h.status === 'DELETED';
+        return `
+          <div class="haz-card ${isDeleted ? 'deleted-overlay' : ''}" onclick="goDetail('${h.id}')">
+            <div class="hc-head">
+              <span class="hc-id" data-field>${h.id}
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">id</span></div>
+                  <div><span class="ft-key">类型</span>String</div>
+                  <div><span class="ft-key">来源</span>系统生成 HAZ-YYYY-MMDD-NNN</div>
+                  <div><span class="ft-key">说明</span>隐患唯一编号</div>
+                </div>
+              </span>
+              <span>
+                <span class="type-tag" data-field>${h.type}
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">type</span></div>
+                    <div><span class="ft-key">类型</span>Enum</div>
+                    <div><span class="ft-key">来源</span>表单提交，六选一</div>
+                    <div><span class="ft-key">说明</span>隐患类型</div>
+                  </div>
+                </span>
+                ${isDeleted ? '<span class="deleted-badge">已删除</span>' : ''}
+              </span>
+            </div>
+            <div class="hc-meta">
+              <div class="hc-meta-row">
+                <span>👤</span>
+                <span data-field>${h.reporterName}
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">reporter_id → user.name</span></div>
+                    <div><span class="ft-key">类型</span>Ref→User</div>
+                    <div><span class="ft-key">来源</span>当前登录用户</div>
+                    <div><span class="ft-key">说明</span>隐患上报人</div>
+                  </div>
+                </span>
+                ${h.gpsLat ? `<span style="margin-left:8px">📍 ${h.gpsLat.toFixed(4)}, ${h.gpsLng.toFixed(4)}</span>` : ''}
+              </div>
+              <div class="hc-meta-row">
+                <span>🕐</span>
+                <span data-field>${h.createdAt}
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">created_at</span></div>
+                    <div><span class="ft-key">类型</span>Timestamp</div>
+                    <div><span class="ft-key">来源</span>系统生成</div>
+                    <div><span class="ft-key">说明</span>上报时间</div>
+                  </div>
+                </span>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function goDetail(id) {
+      SIM.nav.push('hazard_detail.html?id=' + id);
+    }
+
+    renderList();
+    SIM.createPanel({});
+  </script>
+</body>
+</html>

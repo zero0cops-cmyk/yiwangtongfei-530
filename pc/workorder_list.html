@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>一网统飞 PC — 工单管理</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    .header-actions { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    /* 内容卡片（壳层圆角阴影见 common.js pcShellThemeCSS）；本页需 overflow:visible 以免 Tab 数量 Tooltip 被裁切 */
+    .pc-card { background: #fff; overflow: hidden; }
+    .pc-card.wo-list-card { overflow: visible; }
+    /* Tab导航 WO-004：禁止 tab-nav 建立滚动裁剪区（overflow-x:auto 会裁切绝对定位的 .ft） */
+    .tab-nav {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 0;
+      row-gap: 4px;
+      border-bottom: 1px solid #F0F0F0;
+      padding: 0 16px 8px;
+      background: #fff;
+      overflow: visible;
+    }
+    .tab-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 14px 16px;
+      color: #8C8C8C;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      white-space: nowrap;
+      font-size: 14px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .tab-item:hover { color: #1677FF; }
+    .tab-item.active { color: #1677FF; border-bottom-color: #1677FF; font-weight: 600; }
+    /* 使用 div.tab-badge，避免 span 内嵌 div.ft 导致浏览器拆 DOM、Tooltip 失效 */
+    .tab-badge { display: inline-block; position: relative; vertical-align: middle;
+      background: #F5F5F5; color: #8C8C8C; border-radius: 10px;
+      padding: 0 6px; font-size: 12px; margin-left: 4px; }
+    .tab-item.active .tab-badge { background: #E6F4FF; color: #1677FF; }
+    /* 筛选区 */
+    .filter-bar { padding: 12px 16px; border-bottom: 1px solid #F0F0F0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .filter-bar input, .filter-bar select {
+      padding: 6px 10px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 13px; color: #262626; outline: none; background: #fff; }
+    .filter-bar input:focus, .filter-bar select:focus { border-color: #1677FF; }
+    .btn-query { padding: 6px 16px; background: #1677FF; color: #fff; border: none;
+      border-radius: 4px; cursor: pointer; font-size: 13px; }
+    .btn-reset { padding: 6px 12px; background: #fff; border: 1px solid #D9D9D9;
+      border-radius: 4px; cursor: pointer; font-size: 13px; color: #595959; }
+    /* 工单卡片网格 WO-004 */
+    .wo-grid { padding: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    @media (max-width: 1200px) { .wo-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 900px) { .wo-grid { grid-template-columns: repeat(2, 1fr); } }
+    .wo-card {
+      background: #fff; border: 1px solid #F0F0F0; border-radius: 8px; padding: 14px;
+      cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .wo-card:hover { border-color: #1677FF; box-shadow: 0 2px 8px rgba(22,119,255,0.15); transform: translateY(-1px); }
+    .wc-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 6px; }
+    .wc-id { font-size: 12px; color: #8C8C8C; }
+    .status-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; flex-shrink: 0; }
+    .wc-task { font-size: 14px; font-weight: 600; color: #262626; margin-bottom: 8px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wc-meta { font-size: 12px; color: #8C8C8C; display: flex; flex-direction: column; gap: 4px; }
+    .wc-meta-row { display: flex; gap: 4px; align-items: center; }
+    /* 空状态 */
+    .empty-state { display: flex; flex-direction: column; align-items: center; padding: 60px;
+      color: #8C8C8C; text-align: center; }
+    .empty-state .empty-icon { font-size: 52px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; margin-bottom: 8px; }
+
+    /* Tooltip */
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+    .sim-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
+      font-size: 14px; z-index: 99999; opacity: 0; transition: all 0.3s; }
+    .sim-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="pc-app">
+    <aside class="pc-sidenav">
+      <div class="pc-sidenav-brand">一网统飞</div>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">指挥中心</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">空域服务</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">航线管理</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">任务调度</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">直播中心</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">成果管理</span>
+      <a class="pc-sidenav-item active" href="workorder_list.html">工单管理</a>
+      <a class="pc-sidenav-item" href="demand_pool.html">需求池</a>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">资产管理</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">算法管理</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">用户管理</span>
+    </aside>
+    <div class="pc-frame">
+      <header class="pc-topbar">
+        <div class="pc-topbar-weather">
+          <span>🌡 仿真 22°C</span>
+          <span>风 微风</span>
+          <span class="pc-w-extra">湿度 65%</span>
+          <span class="pc-w-extra">能见度 良好</span>
+        </div>
+        <div class="pc-topbar-center">东莞市一网统飞服务平台</div>
+        <div class="pc-topbar-right">
+          <span class="pc-btn-screen" title="本期未接入">态势大屏</span>
+          <span class="pc-clock" id="pc-clock"></span>
+          <span class="pc-user-dot" aria-hidden="true"></span>
+          <div class="header-actions">
+            <div data-field>
+              <span id="header-user">运营人员</span>
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">headerUser</span></div>
+                <div><span class="ft-key">类型</span>String</div>
+                <div><span class="ft-key">来源</span>SIM.session.user + role</div>
+                <div><span class="ft-key">说明</span>顶栏当前登录用户摘要（仿真会话）</div>
+              </div>
+            </div>
+            <span class="header-sep">|</span>
+            <div data-field>
+              <button type="button" class="header-logout" onclick="SIM.logout()">退出登录</button>
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">logout</span></div>
+                <div><span class="ft-key">类型</span>Action</div>
+                <div><span class="ft-key">来源</span>SIM.logout()</div>
+                <div><span class="ft-key">说明</span>清除本地会话并跳转 PC 登录页（仿真）</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+      <div class="pc-main-inner">
+    <div class="pc-card wo-list-card">
+      <!-- Tab导航 WO-004 -->
+      <div class="tab-nav" id="tab-nav"></div>
+      <!-- 筛选区 -->
+      <div class="filter-bar">
+        <input type="date" id="f-date" title="按创建日期筛选">
+        <input type="text" id="f-keyword" placeholder="工单编号/任务名称模糊搜索" style="width:220px">
+        <select id="f-dept">
+          <option value="">全部单位</option>
+        </select>
+        <button class="btn-query" onclick="renderGrid()">查 询</button>
+        <button class="btn-reset" onclick="resetFilter()">重 置</button>
+      </div>
+      <!-- 工单网格 -->
+      <div class="wo-grid" id="wo-grid"></div>
+    </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    SIM.bindPcHeaderUser();
+    // 设置今天日期
+    document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+
+    function fillDeptSelect() {
+      const sel = document.getElementById('f-dept');
+      if (!sel || !SIM.data.depts) return;
+      const v = sel.value;
+      sel.innerHTML = '<option value="">全部单位</option>'
+        + SIM.data.depts.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+      if (v && [...sel.options].some(o => o.value === v)) sel.value = v;
+    }
+    fillDeptSelect();
+
+    function baseWorkorders() {
+      let list = [...SIM.data.workorders];
+      const scope = typeof SIM.getScopeDeptId === 'function' ? SIM.getScopeDeptId() : null;
+      if (typeof SIM.isPcObserver === 'function' && SIM.isPcObserver() && scope) {
+        list = list.filter(w => w.deptId === scope);
+      }
+      return list;
+    }
+    function applyObserverDeptLock() {
+      if (typeof SIM.isPcObserver !== 'function' || !SIM.isPcObserver()) return;
+      const scope = SIM.getScopeDeptId();
+      const sel = document.getElementById('f-dept');
+      if (sel && scope) {
+        sel.value = scope;
+        sel.disabled = true;
+      }
+    }
+
+    const allStatuses = [
+      { key: 'ALL', label: '全部', filter: null },
+      { key: 'PENDING_ASSIGN', label: '待指派' },
+      { key: 'ASSIGNED', label: '已指派' },
+      { key: 'IN_PROGRESS', label: '跟进中' },
+      { key: 'PENDING_REVIEW', label: '待复核' },
+      { key: 'REJECTED', label: '已打回' },
+      { key: 'CLOSED', label: '已完成' }
+    ];
+
+    let currentTab = 'ALL';
+
+    function getCount(status) {
+      const list = baseWorkorders();
+      if (status === null || status === 'ALL') return list.length;
+      return list.filter(w => w.status === status).length;
+    }
+
+    function renderTabs() {
+      document.getElementById('tab-nav').innerHTML = allStatuses.map(s => `
+        <div class="tab-item ${currentTab === s.key ? 'active' : ''}" onclick="switchTab('${s.key}')">
+          ${s.label}<div class="tab-badge" data-field>${getCount(s.key === 'ALL' ? null : s.key)}
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.count.${s.key}</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>WO-004 Tab数量 COUNT WHERE status=${s.key}</div>
+              <div><span class="ft-key">说明</span>${s.label}工单数量（当日）</div>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    function switchTab(key) {
+      currentTab = key;
+      renderTabs();
+      renderGrid();
+    }
+
+    function renderGrid() {
+      const tab = currentTab;
+      const keyword = document.getElementById('f-keyword').value.trim().toLowerCase();
+      const dept = document.getElementById('f-dept').value;
+
+      let wos = baseWorkorders();
+      if (tab !== 'ALL') wos = wos.filter(w => w.status === tab);
+      if (dept) wos = wos.filter(w => w.deptId === dept);
+      if (keyword) wos = wos.filter(w =>
+        w.id.toLowerCase().includes(keyword) || w.taskName.toLowerCase().includes(keyword));
+
+      const container = document.getElementById('wo-grid');
+      if (!wos.length) {
+        container.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+          <div class="empty-icon">📭</div>
+          <p>${keyword || dept ? '没有符合条件的工单' : '暂无工单'}</p>
+          ${keyword || dept ? '<button onclick="resetFilter()" style="padding:6px 14px;border:1px solid #d9d9d9;border-radius:4px;cursor:pointer;background:#fff;color:#595959;font-size:13px">清除筛选</button>' : ''}
+        </div>`;
+        return;
+      }
+
+      container.innerHTML = wos.map(w => {
+        const sc = SIM.utils.getStatusColor(w.status);
+        const sb = SIM.utils.getStatusBg(w.status);
+        const sl = SIM.utils.getStatusLabel(w.status);
+        const assigneeText = w.assigneeName || '<span style="color:#8C8C8C">待指派</span>';
+        return `
+          <div class="wo-card" onclick="goDetail('${w.id}')">
+            <div class="wc-head">
+              <span class="wc-id" data-field>${w.id}
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">id</span></div>
+                  <div><span class="ft-key">类型</span>String</div>
+                  <div><span class="ft-key">来源</span>系统生成 WO-YYYY-MMDD-NNN</div>
+                  <div><span class="ft-key">说明</span>工单唯一编号</div>
+                </div>
+              </span>
+              <span class="status-tag" style="color:${sc};background:${sb}" data-field>${sl}
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">status</span></div>
+                  <div><span class="ft-key">类型</span>Enum</div>
+                  <div><span class="ft-key">来源</span>流转更新</div>
+                  <div><span class="ft-key">说明</span>工单当前状态</div>
+                </div>
+              </span>
+            </div>
+            <div class="wc-task" data-field title="${w.taskName}">${w.taskName}
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">task_name</span></div>
+                <div><span class="ft-key">类型</span>String</div>
+                <div><span class="ft-key">来源</span>通过flight_id关联</div>
+                <div><span class="ft-key">说明</span>来源任务名称</div>
+              </div>
+            </div>
+            <div class="wc-meta">
+              <div class="wc-meta-row">📍
+                <span data-field>${w.stationAddr}
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">station_addr</span></div>
+                    <div><span class="ft-key">类型</span>String</div>
+                    <div><span class="ft-key">来源</span>任务配置继承</div>
+                    <div><span class="ft-key">说明</span>任务站点位置</div>
+                  </div>
+                </span>
+              </div>
+              <div class="wc-meta-row">🏢
+                <span data-field>${w.dept}
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">dept_id → dept.name</span></div>
+                    <div><span class="ft-key">类型</span>Ref→Dept</div>
+                    <div><span class="ft-key">来源</span>上游触发</div>
+                    <div><span class="ft-key">说明</span>归属单位</div>
+                  </div>
+                </span>
+              </div>
+              <div class="wc-meta-row">👤 ${assigneeText}</div>
+              <div class="wc-meta-row">⚠️
+                <span data-field>${w.anomalyMedia.length}处异常
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">anomaly_media_ids.length</span></div>
+                    <div><span class="ft-key">类型</span>Int</div>
+                    <div><span class="ft-key">来源</span>上游触发</div>
+                    <div><span class="ft-key">说明</span>确认异常素材数量</div>
+                  </div>
+                </span>
+                <span style="margin-left:auto" data-field>${w.createdAt}
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">created_at</span></div>
+                    <div><span class="ft-key">类型</span>Timestamp</div>
+                    <div><span class="ft-key">来源</span>系统生成</div>
+                    <div><span class="ft-key">说明</span>工单创建时间</div>
+                  </div>
+                </span>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function resetFilter() {
+      document.getElementById('f-keyword').value = '';
+      if (typeof SIM.isPcObserver !== 'function' || !SIM.isPcObserver()) {
+        document.getElementById('f-dept').value = '';
+      }
+      document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+      currentTab = 'ALL';
+      renderTabs();
+      renderGrid();
+      applyObserverDeptLock();
+    }
+
+    function goDetail(id) {
+      SIM.nav.push('workorder_detail.html?id=' + id);
+    }
+
+    renderTabs();
+    renderGrid();
+    applyObserverDeptLock();
+
+    SIM.createPanel({});
+  </script>
+</body>
+</html>

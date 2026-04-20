@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 需求申报</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #F0F0F0; min-height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: #F5F5F5; color: #262626; font-size: 14px; max-width: 390px; margin: 0 auto; min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06); }
+    .top-bar { background: #fff; border-bottom: 1px solid #F0F0F0; display: flex; align-items: center;
+      padding: 0 16px; height: 48px; position: sticky; top: 0; z-index: 100; }
+    .back-btn { background: none; border: none; font-size: 24px; cursor: pointer; padding: 0; width: 32px; }
+    .top-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; }
+    .page-content { padding: 8px; padding-bottom: 24px; }
+    .filter-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .filter-row select { flex: 1; padding: 7px 10px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 13px; outline: none; background: #fff; }
+    .req-card { background: #fff; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06); cursor: pointer; transition: transform 0.15s; }
+    .req-card:active { transform: scale(0.99); }
+    .rc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .rc-id { font-size: 13px; font-weight: 600; color: #262626; }
+    .status-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .rc-station { font-size: 14px; font-weight: 500; color: #262626; margin-bottom: 4px; }
+    .rc-time { font-size: 12px; color: #8C8C8C; }
+    .fab { position: fixed; bottom: 24px; right: max(16px, calc((100vw - 390px) / 2 + 16px)); width: 48px; height: 48px; border-radius: 50%;
+      background: #1677FF; color: #fff; border: none; cursor: pointer; font-size: 24px;
+      box-shadow: 0 3px 12px rgba(22,119,255,0.4); display: flex; align-items: center; justify-content: center; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; padding: 48px 24px; color: #8C8C8C; }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <button class="back-btn" onclick="SIM.nav.back()">‹</button>
+    <div class="top-title">需求申报</div>
+    <div style="width:32px"></div>
+  </div>
+  <div class="page-content">
+    <div class="filter-row">
+      <select id="f-date" onchange="renderList()">
+        <option value="">全部时间</option>
+        <option value="today">今日</option>
+        <option value="week">本周</option>
+      </select>
+      <select id="f-status" onchange="renderList()">
+        <option value="">全部状态</option>
+        <option value="SUBMITTED">已提交</option>
+        <option value="PROCESSING">处理中</option>
+        <option value="RESOLVED">已完成</option>
+        <option value="REJECTED">已驳回</option>
+      </select>
+    </div>
+    <div id="req-list"></div>
+  </div>
+  <button class="fab" onclick="SIM.nav.push('request_form.html')">+</button>
+
+  <script>
+    const session = JSON.parse(localStorage.getItem('ywsf_session') || 'null');
+    if (!session) window.location.replace('login.html');
+
+    function renderList() {
+      const statusFilter = document.getElementById('f-status').value;
+      const dateFilter = document.getElementById('f-date').value;
+      let reqs = SIM.data.requests.filter(r => r.deptId === session.user.deptId);
+      if (statusFilter) reqs = reqs.filter(r => r.status === statusFilter);
+      if (dateFilter) {
+        const today = new Date().toISOString().slice(0, 10);
+        const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+        if (dateFilter === 'today') reqs = reqs.filter(r => r.createdAt && r.createdAt.startsWith(today));
+        if (dateFilter === 'week') reqs = reqs.filter(r => r.createdAt && r.createdAt.slice(0, 10) >= weekAgo);
+      }
+      const container = document.getElementById('req-list');
+      if (!reqs.length) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">📝</div><p>暂无申报记录</p></div>`;
+        return;
+      }
+      container.innerHTML = reqs.map(r => {
+        const sc = SIM.utils.getStatusColor(r.status);
+        const sb = SIM.utils.getStatusBg(r.status);
+        const sl = SIM.utils.getStatusLabel(r.status);
+        return `
+          <div class="req-card" onclick="SIM.nav.push('request_detail.html?id=${r.id}')">
+            <div class="rc-head">
+              <span class="rc-id" data-field>${r.id}
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">id</span></div>
+                  <div><span class="ft-key">类型</span>String</div>
+                  <div><span class="ft-key">来源</span>系统生成 REQ-YYYY-MMDD-NNN</div>
+                  <div><span class="ft-key">说明</span>申报唯一编号</div>
+                </div>
+              </span>
+              <span class="status-tag" style="color:${sc};background:${sb}" data-field>${sl}
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">status</span></div>
+                  <div><span class="ft-key">类型</span>Enum SUBMITTED|PROCESSING|RESOLVED|REJECTED</div>
+                  <div><span class="ft-key">来源</span>流转更新</div>
+                  <div><span class="ft-key">说明</span>申报当前状态</div>
+                </div>
+              </span>
+            </div>
+            <div class="rc-station" data-field>${r.stationName}
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">station_id → station.name</span></div>
+                <div><span class="ft-key">类型</span>Ref→Station</div>
+                <div><span class="ft-key">来源</span>表单提交，从已有站点选择</div>
+                <div><span class="ft-key">说明</span>飞行区域站点</div>
+              </div>
+            </div>
+            <div class="rc-time" data-field>${r.createdAt}
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">created_at</span></div>
+                <div><span class="ft-key">类型</span>Timestamp</div>
+                <div><span class="ft-key">来源</span>系统生成</div>
+                <div><span class="ft-key">说明</span>申报时间</div>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    renderList();
+    SIM.createPanel({});
+  </script>
+</body>
+</html>

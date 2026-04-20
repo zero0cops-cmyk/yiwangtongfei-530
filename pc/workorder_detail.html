@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>一网统飞 PC — 工单详情</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    .header-actions { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .pc-main-inner.wo-detail-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: stretch;
+    }
+    .pc-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .card-header { padding: 14px 20px; border-bottom: 1px solid #F0F0F0; font-size: 16px; font-weight: 600; }
+    .card-body { padding: 16px 20px; }
+    .field-row { display: flex; padding: 8px 0; border-bottom: 1px solid #F0F0F0; align-items: flex-start; gap: 12px; }
+    .field-row:last-child { border-bottom: none; }
+    .field-label { color: #8C8C8C; font-size: 13px; min-width: 80px; flex-shrink: 0; }
+    .field-value { color: #262626; font-size: 13px; flex: 1; }
+    a.wo-task-name-link {
+      color: #1677FF;
+      text-decoration: none;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    a.wo-task-name-link:hover { text-decoration: underline; }
+    .status-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+
+    /* 派发操作区 WO-006 */
+    .form-item { margin-bottom: 12px; }
+    .form-label { font-size: 13px; color: #595959; margin-bottom: 6px; display: block; }
+    select, textarea { width: 100%; padding: 7px 10px; border: 1px solid #D9D9D9; border-radius: 4px;
+      font-size: 13px; color: #262626; outline: none; background: #fff; font-family: inherit; }
+    select:focus, textarea:focus { border-color: #1677FF; }
+    select:disabled, textarea:disabled {
+      background: #F5F5F5 !important;
+      color: #595959 !important;
+      cursor: not-allowed !important;
+    }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+    textarea { resize: vertical; min-height: 72px; }
+    .dispatch-readonly {
+      background: #FAFAFA;
+      border: 1px solid #F0F0F0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 13px;
+      color: #262626;
+      line-height: 1.6;
+    }
+    .dispatch-readonly .dr-line { margin-bottom: 10px; }
+    .dispatch-readonly .dr-line:last-child { margin-bottom: 0; }
+    .dispatch-readonly .dr-k { color: #8C8C8C; display: inline-block; min-width: 72px; }
+    .dispatch-readonly .dr-v { color: #262626; }
+    .char-count { text-align: right; font-size: 11px; color: #BFBFBF; margin-top: 2px; }
+    .action-btns { display: flex; gap: 8px; }
+    .btn-primary { padding: 8px 20px; background: #1677FF; color: #fff; border: none;
+      border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-default { padding: 8px 16px; background: #fff; border: 1px solid #D9D9D9;
+      border-radius: 4px; cursor: pointer; font-size: 14px; color: #595959; }
+    .btn-default:hover { border-color: #1677FF; color: #1677FF; }
+    .btn-danger { padding: 8px 16px; background: #fff; border: 1px solid #F5222D;
+      color: #F5222D; border-radius: 4px; cursor: pointer; font-size: 14px; }
+
+    /* 异常线索区 WO-007 */
+    .media-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(88px, 104px));
+      gap: 10px;
+      justify-content: start;
+    }
+    .media-thumb {
+      width: 100%;
+      max-width: 104px;
+      margin: 0 auto;
+      aspect-ratio: 1;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #e0f0ff, #bae0ff);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      gap: 2px;
+      transition: transform 0.15s;
+      padding: 6px 4px;
+      box-sizing: border-box;
+    }
+    .media-thumb:hover { transform: scale(1.03); }
+    .media-thumb .thumb-icon { font-size: 20px; line-height: 1; }
+    .media-thumb .thumb-type { font-size: 10px; color: #1677FF; font-weight: 500; }
+    .media-thumb .thumb-conf { font-size: 10px; color: #8C8C8C; }
+    /* 大图模态 */
+    .media-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9900;
+      display: flex; align-items: center; justify-content: center; }
+    .media-modal-content { background: #1a1a1a; border-radius: 10px; padding: 24px; max-width: 600px;
+      width: 90%; color: #fff; }
+    .media-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
+    .media-nav button { background: rgba(255,255,255,0.1); border: none; color: #fff; padding: 8px 16px;
+      border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .media-nav button:hover { background: rgba(255,255,255,0.2); }
+
+    /* 时间线 WO-008 */
+    .timeline { position: relative; padding-left: 28px; }
+    .timeline-item { position: relative; margin-bottom: 20px; }
+    .timeline-dot {
+      position: absolute; left: -28px; width: 12px; height: 12px;
+      border-radius: 50%; top: 3px;
+    }
+    .dot-done { background: #52C41A; }
+    .dot-current { background: #1677FF; box-shadow: 0 0 0 4px rgba(22,119,255,0.2); }
+    .dot-pending { background: transparent; border: 2px solid #D9D9D9; }
+    .timeline-line { position: absolute; left: -23px; top: 15px; bottom: -12px; width: 2px; background: #F0F0F0; }
+    .timeline-item:last-child .timeline-line { display: none; }
+    .tl-label { font-size: 13px; font-weight: 600; color: #262626; margin-bottom: 4px; }
+    .tl-label.pending { color: #BFBFBF; }
+    .tl-meta { font-size: 12px; color: #8C8C8C; line-height: 1.6; }
+    .tl-photo-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+    .tl-photo { width: 48px; height: 48px; border-radius: 4px; background: linear-gradient(135deg, #e0f0ff, #bae0ff);
+      display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .tl-photo--click { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+    .tl-photo--click:hover { transform: scale(1.06); box-shadow: 0 2px 8px rgba(22,119,255,0.35); }
+
+    /* Tooltip */
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+    .sim-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
+      font-size: 14px; z-index: 99999; opacity: 0; transition: all 0.3s; }
+    .sim-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .sim-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9000;
+      display: flex; align-items: center; justify-content: center; }
+    .sim-modal { background: #fff; border-radius: 8px; padding: 24px; width: 360px; }
+    .sim-modal h3 { margin: 0 0 12px; font-size: 16px; }
+    .sim-modal p { margin: 0 0 20px; font-size: 14px; color: #8C8C8C; }
+    .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-btns button { padding: 7px 18px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn-modal-cancel { background: #fff; border: 1px solid #d9d9d9; color: #595959; }
+    .btn-modal-confirm { background: #1677FF; color: #fff; border: none; }
+    .btn-modal-danger { background: #F5222D; color: #fff; border: none; }
+  </style>
+</head>
+<body>
+  <div class="pc-app">
+    <aside class="pc-sidenav">
+      <div class="pc-sidenav-brand">一网统飞</div>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">指挥中心</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">空域服务</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">航线管理</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">任务调度</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">直播中心</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">成果管理</span>
+      <a class="pc-sidenav-item active" href="workorder_list.html">工单管理</a>
+      <a class="pc-sidenav-item" href="demand_pool.html">需求池</a>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">资产管理</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">算法管理</span>
+      <span class="pc-sidenav-item pc-sidenav-disabled" title="仿真占位，本期无页面">用户管理</span>
+    </aside>
+    <div class="pc-frame">
+      <header class="pc-topbar">
+        <div class="pc-topbar-weather">
+          <span>🌡 仿真 22°C</span>
+          <span>风 微风</span>
+          <span class="pc-w-extra">湿度 65%</span>
+          <span class="pc-w-extra">能见度 良好</span>
+        </div>
+        <div class="pc-topbar-center">东莞市一网统飞服务平台</div>
+        <div class="pc-topbar-right">
+          <span class="pc-btn-screen" title="本期未接入">态势大屏</span>
+          <span class="pc-clock" id="pc-clock"></span>
+          <span class="pc-user-dot" aria-hidden="true"></span>
+          <div class="header-actions">
+            <div data-field>
+              <span id="header-user">运营人员</span>
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">headerUser</span></div>
+                <div><span class="ft-key">类型</span>String</div>
+                <div><span class="ft-key">来源</span>SIM.session.user + role</div>
+                <div><span class="ft-key">说明</span>顶栏当前登录用户摘要（仿真会话）</div>
+              </div>
+            </div>
+            <span class="header-sep">|</span>
+            <div data-field>
+              <button type="button" class="header-logout" onclick="SIM.logout()">退出登录</button>
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">logout</span></div>
+                <div><span class="ft-key">类型</span>Action</div>
+                <div><span class="ft-key">来源</span>SIM.logout()</div>
+                <div><span class="ft-key">说明</span>清除本地会话并跳转 PC 登录页（仿真）</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+      <div class="pc-subbar">
+        <a class="pc-back" href="workorder_list.html">← 返回工单管理</a>
+        <span class="pc-breadcrumb-muted">/ 工单详情</span>
+      </div>
+      <div class="pc-main-inner wo-detail-stack" id="pc-main">
+        <div style="padding:60px;text-align:center;color:#8C8C8C">加载中...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    SIM.bindPcHeaderUser();
+    const params = new URLSearchParams(location.search);
+    const woId = params.get('id');
+    let wo = SIM.utils.getWOById(woId) || SIM.data.workorders[0];
+    let localWo = JSON.parse(JSON.stringify(wo));
+
+    const scope = typeof SIM.getScopeDeptId === 'function' ? SIM.getScopeDeptId() : null;
+    const observerBlocked = typeof SIM.isPcObserver === 'function' && SIM.isPcObserver() && scope && wo.deptId !== scope;
+    if (observerBlocked) {
+      window.location.replace('workorder_list.html');
+    }
+
+    SIM.utils.toast = function(msg) {
+      const el = document.createElement('div'); el.className = 'sim-toast'; el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.classList.add('show'), 10);
+      setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2000);
+    };
+
+    function render() {
+      const w = localWo;
+      const sc = SIM.utils.getStatusColor(w.status);
+      const sb = SIM.utils.getStatusBg(w.status);
+      const sl = SIM.utils.getStatusLabel(w.status);
+
+      const isObserver = typeof SIM.isPcObserver === 'function' && SIM.isPcObserver();
+      const canDispatch = w.status === 'PENDING_ASSIGN' && !isObserver;
+
+      function escHtml(s) {
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      // WO-006: 仅 PENDING_ASSIGN 且非观察员可派发；其余状态为只读摘要（字段 Tooltip）
+      const dispatchExecLabel = w.assigneeName
+        ? escHtml(w.assigneeName)
+        : (w.status === 'PENDING_ASSIGN' ? '未指派' : '—');
+      const dispatchTimeLabel = w.dispatchedAt ? escHtml(w.dispatchedAt) : '—';
+      const dispatchNoteLabel = w.dispatchNote ? escHtml(String(w.dispatchNote)) : '无';
+
+      const dispatchCard = canDispatch
+        ? `
+        <div class="pc-card">
+          <div class="card-header">派发操作</div>
+          <div class="card-body">
+            <div class="form-item">
+              <label class="form-label">执行人 <span style="color:#F5222D">*</span></label>
+              <div data-field style="position:relative">
+                <select id="sel-assignee" style="width:100%;padding:7px 10px;border:1px solid #D9D9D9;border-radius:4px;font-size:13px;color:#262626;outline:none;background:#fff;font-family:inherit">
+                  <option value="">请选择执行人</option>
+                  ${SIM.utils.getExecutorsByDept(w.deptId).map(u =>
+                    `<option value="${u.id}">${u.name}（执行人员）</option>`).join('')}
+                </select>
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">assignee_id</span></div>
+                  <div><span class="ft-key">类型</span>Ref→User</div>
+                  <div><span class="ft-key">来源</span>派发写入，按dept_id过滤EXECUTOR</div>
+                  <div><span class="ft-key">说明</span>指派执行人；待指派且账号具备派发权限时可编辑</div>
+                </div>
+              </div>
+            </div>
+            <div class="form-item">
+              <label class="form-label">派发备注
+                <span class="char-count" id="cc-note" style="float:right">0/200</span>
+              </label>
+              <div data-field style="position:relative">
+                <textarea id="inp-note" placeholder="派发说明（选填，最多200字）" maxlength="200"
+                  oninput="document.getElementById('cc-note').textContent=this.value.length+'/200'"
+                  style="width:100%;padding:7px 10px;border:1px solid #D9D9D9;border-radius:4px;font-size:13px;color:#262626;outline:none;background:#fff;font-family:inherit;resize:vertical;min-height:72px"></textarea>
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">dispatch_note</span></div>
+                  <div><span class="ft-key">类型</span>String|null</div>
+                  <div><span class="ft-key">来源</span>派发写入，选填 max 200字</div>
+                  <div><span class="ft-key">说明</span>派发备注；可编辑条件同执行人</div>
+                </div>
+              </div>
+            </div>
+            <div class="action-btns" data-field>
+              <button type="button" class="btn-primary" onclick="doDispatch()">确认派发</button>
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">dispatch_confirm</span></div>
+                <div><span class="ft-key">类型</span>Action</div>
+                <div><span class="ft-key">来源</span>派发写入</div>
+                <div><span class="ft-key">说明</span>待指派且账号具备派发权限时可点击</div>
+              </div>
+            </div>
+          </div>
+        </div>`
+        : `
+        <div class="pc-card">
+          <div class="card-header" data-field>派发操作（只读）
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">dispatch_panel</span></div>
+              <div><span class="ft-key">类型</span>UI·只读摘要</div>
+              <div><span class="ft-key">来源</span>assignee_id / dispatched_at / dispatch_note</div>
+              <div><span class="ft-key">说明</span>仅工单状态为待指派且非观察员时可派发；其余状态展示已派发摘要，不可再次派发（含已打回工单）</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="dispatch-readonly">
+              ${isObserver && w.status === 'PENDING_ASSIGN' ? `
+              <div class="dr-line" data-field><span class="dr-k">权限</span><span class="dr-v">当前账号为观察员，无派发操作权限（仿真）</span>
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">observer_dispatch</span></div>
+                  <div><span class="ft-key">类型</span>Enum</div>
+                  <div><span class="ft-key">来源</span>SIM.isPcObserver()</div>
+                  <div><span class="ft-key">说明</span>观察员仅查看本部门工单，不可执行派发</div>
+                </div>
+              </div>` : ''}
+              <div class="dr-line" data-field><span class="dr-k">指派执行人</span><span class="dr-v">${dispatchExecLabel}</span>
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">assignee_id → name</span></div>
+                  <div><span class="ft-key">类型</span>Ref→User|null</div>
+                  <div><span class="ft-key">来源</span>派发写入</div>
+                  <div><span class="ft-key">说明</span>只读摘要；待指派未派发时显示「未指派」</div>
+                </div>
+              </div>
+              <div class="dr-line" data-field><span class="dr-k">派发时间</span><span class="dr-v">${dispatchTimeLabel}</span>
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">dispatched_at</span></div>
+                  <div><span class="ft-key">类型</span>Timestamp|null</div>
+                  <div><span class="ft-key">来源</span>派发写入</div>
+                  <div><span class="ft-key">说明</span>运营确认派发时间；未派发为「—」</div>
+                </div>
+              </div>
+              <div class="dr-line" data-field><span class="dr-k">派发备注</span><span class="dr-v">${dispatchNoteLabel}</span>
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">dispatch_note</span></div>
+                  <div><span class="ft-key">类型</span>String|null</div>
+                  <div><span class="ft-key">来源</span>派发写入</div>
+                  <div><span class="ft-key">说明</span>只读摘要；无备注显示「无」</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+
+      // WO-007: 异常线索区
+      const mediaItems = w.anomalyMedia.map((m, i) => `
+        <div class="media-thumb" onclick="openMedia(${i})" data-field>
+          <div class="thumb-icon">📷</div>
+          <div class="thumb-type">${m.type}</div>
+          <div class="thumb-conf">置信度 ${(m.confidence * 100).toFixed(0)}%</div>
+          <div class="ft">
+            <div><span class="ft-key">字段名</span><span class="ft-mono">anomaly_media[${i}]</span></div>
+            <div><span class="ft-key">类型</span>Ref→Media (label=CONFIRMED)</div>
+            <div><span class="ft-key">来源</span>上游触发，AI识别确认</div>
+            <div><span class="ft-key">说明</span>${m.type} · ${m.addr}</div>
+          </div>
+        </div>`).join('');
+
+      // WO-008: 处置记录时间线（现场核实缩略图与大图索引）
+      window.__woSitePhotoFlat = [];
+      w.anomalyMedia.forEach((m, mi) => {
+        (m.sitePhotos || []).forEach((ph) => {
+          window.__woSitePhotoFlat.push({ mi, file: ph });
+        });
+      });
+      const tl = buildTimeline(w);
+
+      document.getElementById('pc-main').innerHTML = `
+        <div class="pc-card">
+          <div class="card-header">工单详情</div>
+          <div class="card-body">
+            <div class="field-row">
+              <span class="field-label">工单编号</span>
+              <span class="field-value" data-field>${w.id}
+                <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">id</span></div>
+                  <div><span class="ft-key">类型</span>String</div><div><span class="ft-key">来源</span>系统生成</div>
+                  <div><span class="ft-key">说明</span>工单唯一编号</div></div>
+              </span>
+            </div>
+            <div class="field-row">
+              <span class="field-label">生成时间</span>
+              <span class="field-value" data-field>${w.createdAt}
+                <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">created_at</span></div>
+                  <div><span class="ft-key">类型</span>Timestamp</div><div><span class="ft-key">来源</span>系统生成</div>
+                  <div><span class="ft-key">说明</span>工单创建时间</div></div>
+              </span>
+            </div>
+            <div class="field-row">
+              <span class="field-label">归属单位</span>
+              <span class="field-value" data-field>${w.dept}
+                <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">dept_id → dept.name</span></div>
+                  <div><span class="ft-key">类型</span>Ref→Dept</div><div><span class="ft-key">来源</span>上游触发</div>
+                  <div><span class="ft-key">说明</span>归属单位</div></div>
+              </span>
+            </div>
+            <div class="field-row">
+              <span class="field-label">任务名称</span>
+              <span class="field-value" data-field>
+                <a href="#" class="wo-task-name-link" onclick="event.preventDefault(); SIM.utils.toast('跳转至成果管理详情页（生产环境链接）');">${w.taskName}</a>
+                <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">task_name</span></div>
+                  <div><span class="ft-key">类型</span>String</div><div><span class="ft-key">来源</span>通过flight_id关联</div>
+                  <div><span class="ft-key">说明</span>来源任务名称</div></div>
+              </span>
+            </div>
+            <div class="field-row">
+              <span class="field-label">当前状态</span>
+              <span class="field-value">
+                <span class="status-tag" style="color:${sc};background:${sb}" data-field>${sl}
+                  <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">status</span></div>
+                    <div><span class="ft-key">类型</span>Enum</div><div><span class="ft-key">来源</span>流转更新</div>
+                    <div><span class="ft-key">说明</span>工单当前状态</div></div>
+                </span>
+              </span>
+            </div>
+            <div class="field-row">
+              <span class="field-label">指派对象</span>
+              <span class="field-value" data-field>
+                ${w.status === 'PENDING_ASSIGN'
+                  ? '<span style="color:#8C8C8C">未指派</span>'
+                  : (w.assigneeName || '—') + (w.dispatchedAt ? `<span style="color:#8C8C8C;margin-left:8px;font-size:12px">派发于 ${w.dispatchedAt}</span>` : '')}
+                <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">assignee_id → user.name</span></div>
+                  <div><span class="ft-key">类型</span>Ref→User|null</div><div><span class="ft-key">来源</span>派发写入</div>
+                  <div><span class="ft-key">说明</span>PENDING_ASSIGN时显示"未指派"；其他状态显示执行人姓名+dispatched_at</div></div>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        ${dispatchCard}
+
+        <div class="pc-card">
+          <div class="card-header">异常线索（确认异常${w.anomalyMedia.length}张）</div>
+          <div class="card-body">
+            <div class="media-grid">${mediaItems}</div>
+          </div>
+        </div>
+
+        <div class="pc-card">
+          <div class="card-header">处置记录</div>
+          <div class="card-body">
+            <div class="timeline">${tl}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function buildTimeline(w) {
+      const nodes = [
+        { label: '飞行架次完成', meta: `${w.flightId} · ${w.taskName}`, ts: w.createdAt, done: true },
+        { label: '进入待识别确认', meta: '系统自动', ts: w.createdAt, done: true },
+        { label: '开始识别确认', meta: '数据处理人员', ts: w.createdAt, done: true },
+        { label: '识别完成', meta: `AI识别 · 确认异常${w.anomalyMedia.length}张`, ts: w.createdAt, done: true },
+        { label: '工单生成', meta: `创建时间：${w.createdAt}`, ts: w.createdAt, done: true },
+        {
+          label: '指派执行人',
+          meta: w.assigneeName
+            ? `${w.assigneeName} · 派发于 ${w.dispatchedAt}${w.dispatchNote ? ' · 备注：' + w.dispatchNote : ''}`
+            : null,
+          ts: w.dispatchedAt, done: !!w.dispatchedAt
+        },
+        { label: '执行人查看工单', meta: w.viewedAt ? `${w.assigneeName} · ${w.viewedAt}` : null, ts: w.viewedAt, done: !!w.viewedAt },
+        {
+          label: `现场核实（已完成${w.anomalyMedia.filter(m => m.gpsConfirmedAt).length}/${w.anomalyMedia.length}处）`,
+          meta: w.anomalyMedia.map(m => m.gpsConfirmedAt
+            ? `${m.addr} ✅ ${m.gpsConfirmedAt}`
+            : `${m.addr} ⏳ 待核实`).join('<br>'),
+          ts: w.submittedAt, done: !!w.submittedAt
+        },
+        { label: '执行人提交复核', meta: w.submittedAt ? `${w.assigneeName} · ${w.submittedAt}` : null, ts: w.submittedAt, done: !!w.submittedAt },
+        {
+          label: '复核操作',
+          meta: w.reviewedAt ? `复核人 · ${w.status === 'CLOSED' ? '复核通过' : '打回'} · ${w.reviewedAt}${w.rejectNote ? '<br>打回原因：' + w.rejectNote : ''}` : null,
+          ts: w.reviewedAt || w.rejectedAt, done: !!(w.reviewedAt || w.rejectedAt)
+        },
+        { label: '工单关闭·双端存档', meta: w.closedAt ? `${w.closedAt} · 一网统飞存档 + 主管单位自有系统同步` : null, ts: w.closedAt, done: !!w.closedAt }
+      ];
+
+      // 当前节点 = 第一个没有时间戳的
+      let currentFound = false;
+      return nodes.map((n, i) => {
+        let dotClass = 'dot-pending';
+        if (n.done) {
+          dotClass = 'dot-done';
+        } else if (!currentFound) {
+          dotClass = 'dot-current';
+          currentFound = true;
+        }
+        const labelClass = n.done || dotClass === 'dot-current' ? '' : 'pending';
+        const metaHtml = n.meta ? `<div class="tl-meta">${n.meta}</div>` : '';
+        let photosHtml = '';
+        if (n.label && String(n.label).indexOf('现场核实') === 0) {
+          const flat = window.__woSitePhotoFlat || [];
+          if (flat.length) {
+            photosHtml = `<div class="tl-photo-row">` + flat.map((_, idx) =>
+              `<div class="tl-photo tl-photo--click" role="button" tabindex="0" title="点击查看大图" onclick="openSitePhotoModal(${idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSitePhotoModal(${idx});}">📷</div>`
+            ).join('') + `</div>`;
+          }
+        }
+        return `
+          <div class="timeline-item">
+            <div class="timeline-dot ${dotClass}"></div>
+            <div class="timeline-line"></div>
+            <div class="tl-label ${labelClass}" data-field>${n.label}
+              <div class="ft">
+                <div><span class="ft-key">节点</span>${n.label}</div>
+                <div><span class="ft-key">状态</span>${n.done ? '✅ 已完成' : dotClass === 'dot-current' ? '🔵 当前节点' : '⚪ 待完成'}</div>
+                <div><span class="ft-key">时间</span>${n.ts || '—'}</div>
+              </div>
+            </div>
+            ${metaHtml}
+            ${photosHtml}
+          </div>`;
+      }).join('');
+    }
+
+    let currentMediaIdx = 0;
+    function openMedia(idx) {
+      currentMediaIdx = idx;
+      const m = localWo.anomalyMedia[idx];
+      const overlay = document.createElement('div');
+      overlay.className = 'media-modal';
+      overlay.innerHTML = `
+        <div class="media-modal-content">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <span style="font-size:16px;font-weight:600">异常${idx+1}：${m.type}</span>
+            <button onclick="this.closest('.media-modal').remove()"
+              style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer">×</button>
+          </div>
+          <div style="background:#0a0a0a;border-radius:8px;height:240px;display:flex;align-items:center;justify-content:center;font-size:64px">📷</div>
+          <div style="margin-top:12px;font-size:13px;color:rgba(255,255,255,0.7)">
+            📍 ${m.addr} · AI类型: ${m.type} · 置信度: ${(m.confidence*100).toFixed(0)}%
+          </div>
+          <div class="media-nav">
+            <button onclick="prevMedia()">‹ 上一张</button>
+            <span style="font-size:13px;color:rgba(255,255,255,0.6)">${idx+1} / ${localWo.anomalyMedia.length}</span>
+            <button onclick="nextMedia()">下一张 ›</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    }
+    function prevMedia() {
+      document.querySelector('.media-modal')?.remove();
+      openMedia(Math.max(0, currentMediaIdx - 1));
+    }
+    function nextMedia() {
+      document.querySelector('.media-modal')?.remove();
+      openMedia(Math.min(localWo.anomalyMedia.length - 1, currentMediaIdx + 1));
+    }
+
+    let currentSitePhotoIdx = 0;
+    function openSitePhotoModal(idx) {
+      const list = window.__woSitePhotoFlat;
+      if (!list || !list.length || idx < 0 || idx >= list.length) return;
+      currentSitePhotoIdx = idx;
+      document.querySelector('.site-photo-modal')?.remove();
+      const item = list[currentSitePhotoIdx];
+      const m = localWo.anomalyMedia[item.mi];
+      const overlay = document.createElement('div');
+      overlay.className = 'media-modal site-photo-modal';
+      overlay.innerHTML = `
+        <div class="media-modal-content">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <span style="font-size:16px;font-weight:600">现场核实 · ${item.file}</span>
+            <button type="button" onclick="this.closest('.media-modal').remove()"
+              style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer">×</button>
+          </div>
+          <div style="background:#0a0a0a;border-radius:8px;min-height:360px;display:flex;align-items:center;justify-content:center;font-size:96px">📷</div>
+          <div style="margin-top:12px;font-size:13px;color:rgba(255,255,255,0.75);line-height:1.6">
+            <div>📍 ${m.addr}</div>
+            <div style="margin-top:4px;color:rgba(255,255,255,0.55);font-size:12px">仿真静态示意 · 异常${item.mi + 1} · ${item.file}</div>
+          </div>
+          <div class="media-nav">
+            <button type="button" onclick="prevSitePhoto()">‹ 上一张</button>
+            <span style="font-size:13px;color:rgba(255,255,255,0.6)">${currentSitePhotoIdx + 1} / ${list.length}</span>
+            <button type="button" onclick="nextSitePhoto()">下一张 ›</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    }
+    function prevSitePhoto() {
+      const list = window.__woSitePhotoFlat;
+      if (!list || !list.length) return;
+      document.querySelector('.site-photo-modal')?.remove();
+      openSitePhotoModal(Math.max(0, currentSitePhotoIdx - 1));
+    }
+    function nextSitePhoto() {
+      const list = window.__woSitePhotoFlat;
+      if (!list || !list.length) return;
+      document.querySelector('.site-photo-modal')?.remove();
+      openSitePhotoModal(Math.min(list.length - 1, currentSitePhotoIdx + 1));
+    }
+
+    function doDispatch() {
+      if (localWo.status !== 'PENDING_ASSIGN') return;
+      if (typeof SIM.isPcObserver === 'function' && SIM.isPcObserver()) return;
+      const sel = document.getElementById('sel-assignee');
+      if (!sel || sel.disabled) return;
+      const assigneeId = sel.value;
+      if (!assigneeId) { SIM.utils.toast('请先选择执行人'); return; }
+      const assignee = SIM.utils.getUserById(assigneeId);
+      const note = document.getElementById('inp-note')?.value || '';
+      const overlay = document.createElement('div');
+      overlay.className = 'sim-modal-overlay';
+      overlay.innerHTML = `<div class="sim-modal">
+        <h3>确认派发工单？</h3>
+        <p>将派发给 ${assignee.name}（${localWo.dept}），请确认无误。</p>
+        <div class="modal-btns">
+          <button class="btn-modal-cancel" onclick="this.closest('.sim-modal-overlay').remove()">取消</button>
+          <button class="btn-modal-confirm" onclick="confirmDispatch('${assigneeId}','${assignee.name}','${note}',this)">确认派发</button>
+        </div>
+      </div>`;
+      document.body.appendChild(overlay);
+    }
+
+    function confirmDispatch(assigneeId, name, note, btn) {
+      localWo.status = 'ASSIGNED';
+      localWo.assigneeId = assigneeId;
+      localWo.assigneeName = name;
+      localWo.dispatchNote = note || null;
+      localWo.dispatchedAt = new Date().toISOString().slice(0,16).replace('T',' ');
+      btn.closest('.sim-modal-overlay').remove();
+      SIM.utils.toast('派发成功');
+      render();
+    }
+
+    if (!observerBlocked) {
+      render();
+      SIM.createPanel({});
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 申报详情</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #F0F0F0; min-height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: #F5F5F5; color: #262626; font-size: 14px; max-width: 390px; margin: 0 auto; min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06); }
+    .top-bar { background: #fff; border-bottom: 1px solid #F0F0F0; display: flex; align-items: center;
+      padding: 0 16px; height: 48px; position: sticky; top: 0; z-index: 100; }
+    .back-btn { background: none; border: none; font-size: 24px; cursor: pointer; padding: 0; width: 32px; }
+    .top-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; }
+    .page-content { padding: 8px; padding-bottom: 24px; }
+    .card { background: #fff; border-radius: 8px; padding: 14px 16px; margin-bottom: 8px; }
+    .section-title { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+    .field-row { display: flex; padding: 7px 0; border-bottom: 1px solid #F0F0F0; align-items: flex-start; }
+    .field-row:last-child { border-bottom: none; }
+    .field-label { color: #8C8C8C; font-size: 13px; min-width: 72px; flex-shrink: 0; }
+    .field-value { color: #262626; font-size: 13px; flex: 1; line-height: 1.5; word-break: break-all; }
+    .status-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+    .resolve-card { background: #F6FFED; border: 1px solid #B7EB8F; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; }
+    .resolve-title { font-size: 13px; font-weight: 600; color: #52C41A; margin-bottom: 8px; }
+    .reject-card { background: #FFF2F0; border: 1px solid #FFA39E; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; }
+    .reject-title { font-size: 13px; font-weight: 600; color: #F5222D; margin-bottom: 8px; }
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <button class="back-btn" onclick="SIM.nav.back()">‹</button>
+    <div class="top-title">申报详情</div>
+    <div style="width:32px"></div>
+  </div>
+  <div class="page-content" id="page-content"></div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const reqId = params.get('id');
+    const req = SIM.utils.getRequestById(reqId) || SIM.data.requests[0];
+
+    function render() {
+      const r = req;
+      const sc = SIM.utils.getStatusColor(r.status);
+      const sb = SIM.utils.getStatusBg(r.status);
+      const sl = SIM.utils.getStatusLabel(r.status);
+
+      let extraCard = '';
+      if (r.status === 'RESOLVED') {
+        extraCard = `<div class="resolve-card">
+          <div class="resolve-title">✅ 运营人员处理结果</div>
+          <div class="field-row"><span class="field-label">关联任务</span>
+            <span class="field-value" data-field>${r.linkedTaskId || '—'}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">linked_task_id</span></div>
+                <div><span class="ft-key">类型</span>Ref→Task|null</div><div><span class="ft-key">来源</span>运营人员回填，选填</div>
+                <div><span class="ft-key">说明</span>关联任务ID</div></div>
+            </span>
+          </div>
+          <div class="field-row"><span class="field-label">完成说明</span>
+            <span class="field-value" data-field>${r.resolvedDesc || '—'}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">resolved_desc</span></div>
+                <div><span class="ft-key">类型</span>String|null</div><div><span class="ft-key">来源</span>运营人员回填，选填</div>
+                <div><span class="ft-key">说明</span>完成说明</div></div>
+            </span>
+          </div>
+          <div class="field-row"><span class="field-label">完成时间</span>
+            <span class="field-value" data-field>${r.resolvedAt || '—'}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">resolved_at</span></div>
+                <div><span class="ft-key">类型</span>Timestamp|null</div><div><span class="ft-key">来源</span>流转写入</div>
+                <div><span class="ft-key">说明</span>完成时间</div></div>
+            </span>
+          </div>
+        </div>`;
+      } else if (r.status === 'REJECTED') {
+        extraCard = `<div class="reject-card">
+          <div class="reject-title">❌ 已驳回</div>
+          <div class="field-row"><span class="field-label">驳回原因</span>
+            <span class="field-value" data-field>${r.rejectNote || '（未填写）'}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">reject_note</span></div>
+                <div><span class="ft-key">类型</span>String|null</div><div><span class="ft-key">来源</span>运营人员填写，选填</div>
+                <div><span class="ft-key">说明</span>驳回原因</div></div>
+            </span>
+          </div>
+        </div>`;
+      }
+
+      document.getElementById('page-content').innerHTML = `
+        <div class="card">
+          <div class="section-title">申报信息</div>
+          <div class="field-row">
+            <span class="field-label">申报编号</span>
+            <span class="field-value" data-field>${r.id}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">id</span></div>
+                <div><span class="ft-key">类型</span>String</div><div><span class="ft-key">来源</span>系统生成 REQ-YYYY-MMDD-NNN</div>
+                <div><span class="ft-key">说明</span>申报唯一编号</div></div>
+            </span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">当前状态</span>
+            <span class="field-value">
+              <span class="status-tag" style="color:${sc};background:${sb}" data-field>${sl}
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">status</span></div>
+                  <div><span class="ft-key">类型</span>Enum SUBMITTED|PROCESSING|RESOLVED|REJECTED</div>
+                  <div><span class="ft-key">来源</span>流转更新，运营人员操作</div>
+                  <div><span class="ft-key">说明</span>申报当前状态</div>
+                </div>
+              </span>
+              ${r.acceptedAt ? `<span style="font-size:11px;color:#8C8C8C;margin-left:8px">受理于 ${r.acceptedAt}</span>` : ''}
+            </span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">申报时间</span>
+            <span class="field-value" data-field>${r.createdAt}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">created_at</span></div>
+                <div><span class="ft-key">类型</span>Timestamp</div><div><span class="ft-key">来源</span>系统生成</div>
+                <div><span class="ft-key">说明</span>申报时间</div></div>
+            </span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">飞行区域</span>
+            <span class="field-value" data-field>${r.stationName}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">station_id → station.name</span></div>
+                <div><span class="ft-key">类型</span>Ref→Station</div><div><span class="ft-key">来源</span>表单提交</div>
+                <div><span class="ft-key">说明</span>飞行区域站点</div></div>
+            </span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">申报内容</div>
+          <div class="field-row">
+            <span class="field-label">任务描述</span>
+            <span class="field-value" data-field>${r.taskDesc}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">task_desc</span></div>
+                <div><span class="ft-key">类型</span>String max 500字</div><div><span class="ft-key">来源</span>表单提交，必填</div>
+                <div><span class="ft-key">说明</span>任务描述</div></div>
+            </span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">任务时间</span>
+            <span class="field-value" data-field>${r.timeDesc}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">time_desc</span></div>
+                <div><span class="ft-key">类型</span>String max 200字</div><div><span class="ft-key">来源</span>表单提交，必填</div>
+                <div><span class="ft-key">说明</span>任务时间描述</div></div>
+            </span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">成果要求</span>
+            <span class="field-value" data-field>${r.deliverableDesc}
+              <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">deliverable_desc</span></div>
+                <div><span class="ft-key">类型</span>String max 500字</div><div><span class="ft-key">来源</span>表单提交，必填</div>
+                <div><span class="ft-key">说明</span>成果要求描述</div></div>
+            </span>
+          </div>
+        </div>
+
+        ${extraCard}
+      `;
+    }
+
+    render();
+    SIM.createPanel({});
+  </script>
+</body>
+</html>

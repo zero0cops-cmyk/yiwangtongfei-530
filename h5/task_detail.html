@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>一网统飞 — 架次详情</title>
+  <script src="../js/common.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #F0F0F0; min-height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: #F5F5F5; color: #262626; font-size: 14px; max-width: 390px; margin: 0 auto; min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06); }
+    .top-bar { background: #fff; border-bottom: 1px solid #F0F0F0; display: flex; align-items: center;
+      padding: 0 16px; height: 48px; position: sticky; top: 0; z-index: 100; }
+    .back-btn { background: none; border: none; font-size: 24px; color: #262626; cursor: pointer; padding: 0; width: 32px; }
+    .top-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; }
+    .top-right { width: 32px; }
+    .page-content { padding: 8px; padding-bottom: 24px; }
+    .card { background: #fff; border-radius: 8px; padding: 14px 16px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .section-title { font-size: 15px; font-weight: 600; color: #262626; margin-bottom: 10px; }
+    .field-row { display: flex; padding: 7px 0; border-bottom: 1px solid #F0F0F0; align-items: flex-start; }
+    .field-row:last-child { border-bottom: none; }
+    .field-label { color: #8C8C8C; font-size: 13px; min-width: 80px; }
+    .field-value { color: #262626; font-size: 13px; flex: 1; }
+    .status-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+    .progress-bar { height: 6px; background: #F0F0F0; border-radius: 3px; overflow: hidden; margin-top: 4px; }
+    .progress-fill { height: 100%; background: #1677FF; border-radius: 3px; }
+    .action-card { background: #fff; border-radius: 8px; margin-bottom: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .action-row { display: flex; align-items: center; padding: 14px 16px; cursor: pointer;
+      border-bottom: 1px solid #F0F0F0; transition: background 0.15s; }
+    .action-row:last-child { border-bottom: none; }
+    .action-row:active { background: #F5F5F5; }
+    .action-icon { font-size: 24px; margin-right: 12px; }
+    .action-text { flex: 1; }
+    .action-name { font-size: 15px; font-weight: 500; color: #262626; }
+    .action-desc { font-size: 12px; color: #8C8C8C; margin-top: 2px; }
+    .action-arrow { color: #BFBFBF; font-size: 18px; }
+
+    [data-field] { position: relative; cursor: default; }
+    [data-field]:hover .ft { display: block; }
+    .ft { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 9999;
+      background: #1a1a1a; color: #eee; border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.8; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 200px; }
+    .ft-key { color: #aaa; display: inline-block; width: 48px; }
+    .ft-mono { font-family: monospace; color: #7dd3fc; }
+    body.hide-tooltip [data-field]:hover .ft { display: none; }
+  </style>
+</head>
+<body>
+  <script>SIM.guardExecutorNoTaskMonitorPages();</script>
+  <div class="top-bar">
+    <button class="back-btn" onclick="SIM.nav.back()">‹</button>
+    <div class="top-title">架次详情</div>
+    <div class="top-right"></div>
+  </div>
+  <div class="page-content" id="page-content"></div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const flightId = params.get('id');
+    let flight = SIM.utils.getFlightById(flightId) || SIM.data.flights[0];
+
+    function render() {
+      const f = flight;
+      const statusColor = SIM.utils.getStatusColor(f.status);
+      const statusBg = SIM.utils.getStatusBg(f.status);
+      const statusLabel = SIM.utils.getFlightStatusLabel(f.status);
+      const showProgress = f.status !== 'PENDING';
+      const progress = f.progress || 0;
+      const isFlying = f.status === 'IN_PROGRESS';
+      const isCompleted = f.status === 'COMPLETED';
+      const isPending = f.status === 'PENDING';
+
+      const progressHtml = showProgress ? `
+        <div class="progress-bar" data-field>
+          <div class="progress-fill" style="width:${progress}%"></div>
+          <div class="ft">
+            <div><span class="ft-key">字段名</span><span class="ft-mono">progress</span></div>
+            <div><span class="ft-key">类型</span>Int|null 0~100</div>
+            <div><span class="ft-key">来源</span>系统更新</div>
+            <div><span class="ft-key">说明</span>执行进度百分比</div>
+          </div>
+        </div>
+        <div style="text-align:right;font-size:12px;color:#1677FF;margin-top:3px">${progress}%</div>` : '';
+
+      // 操作入口（按状态）
+      let actions = '';
+      if (isFlying) {
+        actions = `
+          <div class="action-card">
+            <div class="action-row" onclick="SIM.nav.push('track.html?id=${f.id}')">
+              <span class="action-icon">🗺️</span>
+              <div class="action-text">
+                <div class="action-name">查看航迹</div>
+                <div class="action-desc">规划航线 + 实时轨迹叠加</div>
+              </div>
+              <span class="action-arrow">›</span>
+            </div>
+            <div class="action-row" onclick="SIM.nav.push('video_live.html?id=${f.id}')">
+              <span class="action-icon">🎥</span>
+              <div class="action-text">
+                <div class="action-name">查看实时视频</div>
+                <div class="action-desc">实时画面 · 仿真</div>
+              </div>
+              <span class="action-arrow">›</span>
+            </div>
+          </div>`;
+      } else if (isPending) {
+        actions = `
+          <div class="action-card">
+            <div class="action-row" onclick="SIM.nav.push('track.html?id=${f.id}')">
+              <span class="action-icon">🗺️</span>
+              <div class="action-text">
+                <div class="action-name">查看航迹</div>
+                <div class="action-desc">仅展示规划航线，尚无实际轨迹</div>
+              </div>
+              <span class="action-arrow">›</span>
+            </div>
+          </div>`;
+      } else if (isCompleted) {
+        actions = `
+          <div class="action-card">
+            <div class="action-row" onclick="SIM.nav.push('track.html?id=${f.id}')">
+              <span class="action-icon">🗺️</span>
+              <div class="action-text">
+                <div class="action-name">查看航迹</div>
+                <div class="action-desc">规划航线 + 实际轨迹叠加</div>
+              </div>
+              <span class="action-arrow">›</span>
+            </div>
+            <div class="action-row" onclick="SIM.nav.push('video_replay.html?id=${f.id}')">
+              <span class="action-icon">🎥</span>
+              <div class="action-text">
+                <div class="action-name">查看视频回放</div>
+                <div class="action-desc">已归档历史视频</div>
+              </div>
+              <span class="action-arrow">›</span>
+            </div>
+          </div>`;
+      }
+
+      document.getElementById('page-content').innerHTML = `
+        <div class="card">
+          <div class="section-title">架次信息</div>
+          <div class="field-row">
+            <span class="field-label">架次编号</span>
+            <span class="field-value" data-field>${f.id}
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">flight_id</span></div>
+                <div><span class="ft-key">类型</span>String</div>
+                <div><span class="ft-key">来源</span>系统生成，唯一</div>
+                <div><span class="ft-key">说明</span>架次唯一编号</div>
+              </div>
+            </span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">归属任务</span>
+            <span class="field-value" data-field>${f.taskName}
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">task_id → task.name</span></div>
+                <div><span class="ft-key">类型</span>Ref→Task</div>
+                <div><span class="ft-key">来源</span>任务配置继承</div>
+                <div><span class="ft-key">说明</span>架次归属任务名称</div>
+              </div>
+            </span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">归属单位</span>
+            <span class="field-value" data-field>${f.dept}
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">dept_id → dept.name</span></div>
+                <div><span class="ft-key">类型</span>Ref→Dept</div>
+                <div><span class="ft-key">来源</span>任务配置继承</div>
+                <div><span class="ft-key">说明</span>归属单位</div>
+              </div>
+            </span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">计划时间</span>
+            <span class="field-value" data-field>${f.scheduledAt}
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">scheduled_at</span></div>
+                <div><span class="ft-key">类型</span>Timestamp</div>
+                <div><span class="ft-key">来源</span>任务配置继承</div>
+                <div><span class="ft-key">说明</span>计划执行时间</div>
+              </div>
+            </span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">当前状态</span>
+            <span class="field-value">
+              <span class="status-tag" style="color:${statusColor};background:${statusBg}" data-field>${statusLabel}
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">status</span></div>
+                  <div><span class="ft-key">类型</span>Enum PENDING|IN_PROGRESS|COMPLETED</div>
+                  <div><span class="ft-key">来源</span>流转更新</div>
+                  <div><span class="ft-key">说明</span>架次状态：待执行 / 执行中 / 已完成</div>
+                </div>
+              </span>
+              ${showProgress ? `<span style="font-size:12px;color:#8C8C8C;margin-left:8px">${progress}%</span>` : ''}
+            </span>
+          </div>
+          ${showProgress ? `<div style="padding:6px 0">${progressHtml}</div>` : ''}
+        </div>
+        ${actions}
+      `;
+    }
+
+    render();
+    SIM.createPanel({});
+  </script>
+</body>
+</html>
