@@ -311,7 +311,17 @@
               <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.closed</span></div>
               <div><span class="ft-key">类型</span>Int</div>
               <div><span class="ft-key">来源</span>STAT-004 COUNT WHERE status=CLOSED</div>
-              <div><span class="ft-key">说明</span>复核通过、已关闭的工单数量（终态）</div>
+              <div><span class="ft-key">说明</span>复核通过的工单数量（终态·已完成）</div>
+            </div>
+          </div>
+          <div class="stat-item" data-field>
+            <span class="stat-num gray" id="wo-cancelled">—</span>
+            <span class="stat-label">已关闭</span>
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">workorders.cancelled</span></div>
+              <div><span class="ft-key">类型</span>Int</div>
+              <div><span class="ft-key">来源</span>STAT-004 COUNT WHERE status=CANCELLED</div>
+              <div><span class="ft-key">说明</span>PENDING_ASSIGN直接关闭的工单数量（终态·已关闭）</div>
             </div>
           </div>
         </div>
@@ -437,6 +447,7 @@
         document.getElementById('wo-pr').textContent = d.workorders.pendingReview;
         document.getElementById('wo-rej').textContent = d.workorders.rejected;
         document.getElementById('wo-closed').textContent = d.workorders.closed;
+        document.getElementById('wo-cancelled').textContent = d.workorders.cancelled;
       } else {
         document.getElementById('boards-admin').style.display = 'none';
         document.getElementById('boards-executor').style.display = 'block';

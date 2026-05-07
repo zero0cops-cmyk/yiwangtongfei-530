@@ -294,14 +294,9 @@
                 </div>
               </div>
             </div>
-            <div class="action-btns" data-field>
+            <div class="action-btns">
+              <button type="button" class="btn-danger" onclick="doCloseWorkorder()">关闭工单</button>
               <button type="button" class="btn-primary" onclick="doDispatch()">确认派发</button>
-              <div class="ft">
-                <div><span class="ft-key">字段名</span><span class="ft-mono">dispatch_confirm</span></div>
-                <div><span class="ft-key">类型</span>Action</div>
-                <div><span class="ft-key">来源</span>派发写入</div>
-                <div><span class="ft-key">说明</span>待指派且账号具备派发权限时可点击</div>
-              </div>
             </div>
           </div>
         </div>`
@@ -435,6 +430,15 @@
                   <div><span class="ft-key">说明</span>PENDING_ASSIGN时显示"未指派"；其他状态显示执行人姓名+dispatched_at</div></div>
               </span>
             </div>
+            ${w.status === 'CANCELLED' ? `
+            <div class="field-row">
+              <span class="field-label">关闭原因</span>
+              <span class="field-value" style="color:#F5222D" data-field>${escHtml(w.closeReason)}
+                <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">close_reason</span></div>
+                  <div><span class="ft-key">类型</span>String|null</div><div><span class="ft-key">来源</span>关闭人填写，CANCELLED时必填</div>
+                  <div><span class="ft-key">说明</span>管理员取消工单原因（已关闭）；复核通过（已完成）时不显示</div></div>
+              </span>
+            </div>` : ''}
           </div>
         </div>
 
@@ -457,35 +461,50 @@
     }
 
     function buildTimeline(w) {
-      const nodes = [
+      const isDirectClose = w.status === 'CANCELLED';
+      const baseNodes = [
         { label: '飞行架次完成', meta: `${w.flightId} · ${w.taskName}`, ts: w.createdAt, done: true },
         { label: '进入待识别确认', meta: '系统自动', ts: w.createdAt, done: true },
         { label: '开始识别确认', meta: '数据处理人员', ts: w.createdAt, done: true },
         { label: '识别完成', meta: `AI识别 · 确认异常${w.anomalyMedia.length}张`, ts: w.createdAt, done: true },
-        { label: '工单生成', meta: `创建时间：${w.createdAt}`, ts: w.createdAt, done: true },
-        {
-          label: '指派执行人',
-          meta: w.assigneeName
-            ? `${w.assigneeName} · 派发于 ${w.dispatchedAt}${w.dispatchNote ? ' · 备注：' + w.dispatchNote : ''}`
-            : null,
-          ts: w.dispatchedAt, done: !!w.dispatchedAt
-        },
-        { label: '执行人查看工单', meta: w.viewedAt ? `${w.assigneeName} · ${w.viewedAt}` : null, ts: w.viewedAt, done: !!w.viewedAt },
-        {
-          label: `现场核实（已完成${w.anomalyMedia.filter(m => m.gpsConfirmedAt).length}/${w.anomalyMedia.length}处）`,
-          meta: w.anomalyMedia.map(m => m.gpsConfirmedAt
-            ? `${m.addr} ✅ ${m.gpsConfirmedAt}`
-            : `${m.addr} ⏳ 待核实`).join('<br>'),
-          ts: w.submittedAt, done: !!w.submittedAt
-        },
-        { label: '执行人提交复核', meta: w.submittedAt ? `${w.assigneeName} · ${w.submittedAt}` : null, ts: w.submittedAt, done: !!w.submittedAt },
-        {
-          label: '复核操作',
-          meta: w.reviewedAt ? `复核人 · ${w.status === 'CLOSED' ? '复核通过' : '打回'} · ${w.reviewedAt}${w.rejectNote ? '<br>打回原因：' + w.rejectNote : ''}` : null,
-          ts: w.reviewedAt || w.rejectedAt, done: !!(w.reviewedAt || w.rejectedAt)
-        },
-        { label: '工单关闭·双端存档', meta: w.closedAt ? `${w.closedAt} · 一网统飞存档 + 主管单位自有系统同步` : null, ts: w.closedAt, done: !!w.closedAt }
+        { label: '工单生成', meta: `创建时间：${w.createdAt}`, ts: w.createdAt, done: true }
       ];
+
+      if (isDirectClose) {
+        baseNodes.push({
+          label: '管理员直接关闭工单',
+          meta: `${w.closedBy ? SIM.utils.getUserById(w.closedBy)?.name || w.closedBy : '管理员'} · ${w.closedAt} · 关闭原因：${w.closeReason || '—'}`,
+          ts: w.closedAt, done: true
+        });
+        baseNodes.push({ label: '工单关闭·双端存档', meta: w.closedAt ? `${w.closedAt} · 一网统飞存档 + 主管单位自有系统同步` : null, ts: w.closedAt, done: true });
+      } else {
+        baseNodes.push(
+          {
+            label: '指派执行人',
+            meta: w.assigneeName
+              ? `${w.assigneeName} · 派发于 ${w.dispatchedAt}${w.dispatchNote ? ' · 备注：' + w.dispatchNote : ''}`
+              : null,
+            ts: w.dispatchedAt, done: !!w.dispatchedAt
+          },
+          { label: '执行人查看工单', meta: w.viewedAt ? `${w.assigneeName} · ${w.viewedAt}` : null, ts: w.viewedAt, done: !!w.viewedAt },
+          {
+            label: `现场核实（已完成${w.anomalyMedia.filter(m => m.gpsConfirmedAt).length}/${w.anomalyMedia.length}处）`,
+            meta: w.anomalyMedia.map(m => m.gpsConfirmedAt
+              ? `${m.addr} ✅ ${m.gpsConfirmedAt}`
+              : `${m.addr} ⏳ 待核实`).join('<br>'),
+            ts: w.submittedAt, done: !!w.submittedAt
+          },
+          { label: '执行人提交复核', meta: w.submittedAt ? `${w.assigneeName} · ${w.submittedAt}` : null, ts: w.submittedAt, done: !!w.submittedAt },
+          {
+            label: '复核操作',
+            meta: w.reviewedAt ? `复核人 · ${w.status === 'CLOSED' ? '复核通过' : '打回'} · ${w.reviewedAt}${w.rejectNote ? '<br>打回原因：' + w.rejectNote : ''}` : null,
+            ts: w.reviewedAt || w.rejectedAt, done: !!(w.reviewedAt || w.rejectedAt)
+          },
+          { label: '工单关闭·双端存档', meta: w.closedAt ? `${w.closedAt} · 一网统飞存档 + 主管单位自有系统同步` : null, ts: w.closedAt, done: !!w.closedAt }
+        );
+      }
+
+      const nodes = baseNodes;
 
       // 当前节点 = 第一个没有时间戳的
       let currentFound = false;
@@ -634,6 +653,52 @@
       localWo.dispatchedAt = new Date().toISOString().slice(0,16).replace('T',' ');
       btn.closest('.sim-modal-overlay').remove();
       SIM.utils.toast('派发成功');
+      render();
+    }
+
+    function doCloseWorkorder() {
+      if (localWo.status !== 'PENDING_ASSIGN') return;
+      if (typeof SIM.isPcObserver === 'function' && SIM.isPcObserver()) return;
+      const overlay = document.createElement('div');
+      overlay.className = 'sim-modal-overlay';
+      overlay.innerHTML = `<div class="sim-modal" style="width:360px">
+        <h3>确认关闭工单？</h3>
+        <div style="margin-bottom:16px">
+          <label class="form-label" style="display:block;margin-bottom:6px">关闭原因 <span style="color:#F5222D">*</span>
+            <span id="cc-close-reason" style="float:right;font-size:11px;color:#BFBFBF">0/200</span>
+          </label>
+          <textarea id="inp-close-reason" placeholder="请填写关闭原因" maxlength="200"
+            style="width:100%;padding:7px 10px;border:1px solid #D9D9D9;border-radius:4px;font-size:13px;resize:vertical;min-height:80px;font-family:inherit;outline:none"
+            oninput="document.getElementById('cc-close-reason').textContent=this.value.length+'/200'"></textarea>
+        </div>
+        <p style="font-size:13px;color:#8C8C8C;margin-bottom:16px">关闭后工单将直接归档，操作不可逆。</p>
+        <div class="modal-btns">
+          <button class="btn-modal-cancel" onclick="this.closest('.sim-modal-overlay').remove()">取消</button>
+          <button class="btn-modal-danger" onclick="confirmCloseWorkorder(this)">确认关闭</button>
+        </div>
+      </div>`;
+      document.body.appendChild(overlay);
+    }
+
+    function confirmCloseWorkorder(btn) {
+      const reason = document.getElementById('inp-close-reason')?.value?.trim();
+      if (!reason) {
+        SIM.utils.toast('请填写关闭原因');
+        return;
+      }
+      localWo.status = 'CANCELLED';
+      localWo.closedBy = SIM.session && SIM.session.user ? SIM.session.user.id : 'OP001';
+      localWo.closedAt = new Date().toISOString().slice(0,16).replace('T',' ');
+      localWo.closeReason = reason;
+      btn.closest('.sim-modal-overlay').remove();
+      SIM.utils.toast('工单已取消，触发双端存档');
+      // 重建时间线照片索引
+      window.__woSitePhotoFlat = [];
+      localWo.anomalyMedia.forEach((m, mi) => {
+        (m.sitePhotos || []).forEach((ph) => {
+          window.__woSitePhotoFlat.push({ mi, file: ph });
+        });
+      });
       render();
     }
 

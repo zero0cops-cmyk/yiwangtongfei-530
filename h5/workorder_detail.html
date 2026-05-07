@@ -243,12 +243,12 @@
     });
 
     function isExecutorFieldLocked() {
-      return role === 'EXECUTOR' && (localWo.status === 'PENDING_REVIEW' || localWo.status === 'CLOSED');
+      return role === 'EXECUTOR' && (localWo.status === 'PENDING_REVIEW' || localWo.status === 'CLOSED' || localWo.status === 'CANCELLED');
     }
 
     function render() {
       const w = localWo;
-      const executorMaterialsLocked = role === 'EXECUTOR' && (w.status === 'PENDING_REVIEW' || w.status === 'CLOSED');
+      const executorMaterialsLocked = role === 'EXECUTOR' && (w.status === 'PENDING_REVIEW' || w.status === 'CLOSED' || w.status === 'CANCELLED');
       const statusColor = SIM.utils.getStatusColor(w.status);
       const statusBg = SIM.utils.getStatusBg(w.status);
       const statusLabel = SIM.utils.getStatusLabel(w.status);
@@ -259,7 +259,7 @@
           📍 异常${i + 1}·${m.type}
         </span>`).join('');
 
-      // 工单信息区（6字段）
+      // 工单信息区（7字段 + 关闭原因条件展示）
       const infoFields = `
         <div class="field-row">
           <span class="field-label">工单编号</span>
@@ -340,7 +340,19 @@
               <div><span class="ft-key">说明</span>工单创建时间</div>
             </div>
           </span>
-        </div>`;
+        </div>
+        ${w.status === 'CANCELLED' ? `
+        <div class="field-row">
+          <span class="field-label">关闭原因</span>
+          <span class="field-value" data-field style="color:#F5222D">${w.closeReason}
+            <div class="ft">
+              <div><span class="ft-key">字段名</span><span class="ft-mono">close_reason</span></div>
+              <div><span class="ft-key">类型</span>String|null</div>
+              <div><span class="ft-key">来源</span>关闭人填写，CANCELLED时必填</div>
+              <div><span class="ft-key">说明</span>管理员取消工单原因（已关闭）；复核通过（已完成）时不显示</div>
+            </div>
+          </span>
+        </div>` : ''}`;
 
       // 异常线索区（逐项展开）
       const anomalyItems = w.anomalyMedia.map((m, i) => {
@@ -604,6 +616,7 @@
         if (w.status === 'PENDING_ASSIGN') {
           bar.innerHTML = `
             <div class="bottom-bar">
+              <button class="btn-default" onclick="doCloseWorkorder()">关闭工单</button>
               <button class="btn-primary" onclick="doDispatch()">派 发</button>
             </div>`;
         } else if (w.status === 'PENDING_REVIEW') {
@@ -616,7 +629,7 @@
           bar.innerHTML = '';
         }
       } else if (role === 'EXECUTOR') {
-        if (w.status === 'CLOSED') {
+        if (w.status === 'CLOSED' || w.status === 'CANCELLED') {
           bar.innerHTML = '';
         } else if (w.status === 'PENDING_REVIEW') {
           bar.innerHTML = `
@@ -762,6 +775,51 @@
           setTimeout(() => SIM.nav.back(), 1500);
         }
       });
+    }
+
+    // 直接关闭工单（PENDING_ASSIGN → CANCELLED）
+    function doCloseWorkorder() {
+      const overlay = document.createElement('div');
+      overlay.className = 'sim-modal-overlay';
+      overlay.innerHTML = `<div class="sim-modal" style="width:320px">
+        <h3>确认关闭工单？</h3>
+        <div class="form-item" style="margin-bottom:16px">
+          <label class="form-label">关闭原因 <span style="color:#F5222D">*</span>
+            <span class="char-count" id="cc-close-reason" style="float:right">0/200</span>
+          </label>
+          <textarea id="inp-close-reason" placeholder="请填写关闭原因" maxlength="200"
+            style="width:100%;padding:8px;border:1px solid #D9D9D9;border-radius:4px;font-size:13px;resize:vertical;min-height:80px;font-family:inherit;outline:none"
+            oninput="document.getElementById('cc-close-reason').textContent=this.value.length+'/200'"></textarea>
+        </div>
+        <p style="font-size:12px;color:#8C8C8C;margin-bottom:16px">关闭后工单将直接归档，操作不可逆。</p>
+        <div class="modal-btns">
+          <button class="btn-modal-cancel" onclick="this.closest('.sim-modal-overlay').remove()">取消</button>
+          <button class="btn-modal-danger" id="confirm-close-btn">确认关闭</button>
+        </div>
+      </div>`;
+      document.body.appendChild(overlay);
+
+      overlay.querySelector('.btn-modal-cancel').onclick = () => overlay.remove();
+      overlay.querySelector('#confirm-close-btn').onclick = () => {
+        const reason = document.getElementById('inp-close-reason')?.value?.trim();
+        if (!reason) {
+          SIM.utils.toast('请填写关闭原因');
+          return;
+        }
+        overlay.remove();
+        confirmCloseWorkorder(reason);
+      };
+    }
+
+    function confirmCloseWorkorder(reason) {
+      localWo.status = 'CANCELLED';
+      localWo.closedBy = userId;
+      localWo.closedAt = new Date().toISOString().slice(0,16).replace('T',' ');
+      localWo.closeReason = reason;
+      const idx = SIM.data.workorders.findIndex(w => w.id === localWo.id);
+      if (idx >= 0) Object.assign(SIM.data.workorders[idx], localWo);
+      SIM.utils.toast('工单已取消，触发双端存档');
+      setTimeout(() => SIM.nav.back(), 1500);
     }
 
     // WO-012: 提交复核

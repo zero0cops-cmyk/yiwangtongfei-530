@@ -196,7 +196,8 @@
       { key: 'inProgress',    label: '跟进中', color: '#1677FF', filterVal: 'IN_PROGRESS',    val: () => getStats().inProgress },
       { key: 'pendingReview', label: '待复核', color: '#722ED1', filterVal: 'PENDING_REVIEW', val: () => getStats().pendingReview },
       { key: 'rejected',      label: '已打回', color: '#F5222D', filterVal: 'REJECTED',       val: () => getStats().rejected },
-      { key: 'closed',        label: '已完成', color: '#52C41A', filterVal: 'CLOSED',         val: () => getStats().closed }
+      { key: 'closed',        label: '已完成', color: '#52C41A', filterVal: 'CLOSED',         val: () => getStats().closed },
+      { key: 'cancelled',     label: '已关闭', color: '#8C8C8C', filterVal: 'CANCELLED',      val: () => getStats().cancelled }
     ];
     // 执行人员：待跟进=ASSIGNED+REJECTED合并
     const executorCards = [
@@ -219,13 +220,13 @@
           return {
             total: d.total, pendingAssign: d.pendingAssign,
             assigned: d.assigned, inProgress: d.inProgress,
-            pendingReview: d.pendingReview, rejected: d.rejected, closed: d.closed
+            pendingReview: d.pendingReview, rejected: d.rejected, closed: d.closed, cancelled: d.cancelled
           };
         } else {
           const d = SIM.data.statsExecutor.today.workorders;
           return {
             pendingFollow: d.pendingFollow, inProgress: d.inProgress,
-            pendingReview: d.pendingReview, closed: d.closed
+            pendingReview: d.pendingReview, closed: d.closed, cancelled: d.cancelled
           };
         }
       }
@@ -239,7 +240,8 @@
           inProgress: wos.filter(w => w.status === 'IN_PROGRESS').length,
           pendingReview: wos.filter(w => w.status === 'PENDING_REVIEW').length,
           rejected: wos.filter(w => w.status === 'REJECTED').length,
-          closed: wos.filter(w => w.status === 'CLOSED').length
+          closed: wos.filter(w => w.status === 'CLOSED').length,
+          cancelled: wos.filter(w => w.status === 'CANCELLED').length
         };
       } else {
         const pending = wos.filter(w => ['ASSIGNED', 'REJECTED'].includes(w.status)).length;
@@ -247,7 +249,8 @@
           pendingFollow: pending,
           inProgress: wos.filter(w => w.status === 'IN_PROGRESS').length,
           pendingReview: wos.filter(w => w.status === 'PENDING_REVIEW').length,
-          closed: wos.filter(w => w.status === 'CLOSED').length
+          closed: wos.filter(w => w.status === 'CLOSED').length,
+          cancelled: wos.filter(w => w.status === 'CANCELLED').length
         };
       }
     }

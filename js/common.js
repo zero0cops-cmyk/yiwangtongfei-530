@@ -184,6 +184,7 @@ SIM.data = {
       dispatchNote: null, dispatchedAt: '2026-04-12 09:00',
       viewedAt: '2026-04-12 10:00', submittedAt: '2026-04-12 15:30',
       reviewedBy: 'U001', reviewedAt: '2026-04-13 09:00', closedAt: '2026-04-13 09:00',
+      closedBy: 'U001', closeReason: null,
       createdAt: '2026-04-12 08:00',
       anomalyMedia: [
         { id: 'M005', addr: '龙岗G94 K18+800', type: '路面破损', confidence: 0.88,
@@ -230,6 +231,20 @@ SIM.data = {
         { id: 'M008', addr: '平湖 G107 K33+200', type: '路面破损', confidence: 0.91,
           gpsLat: 22.6982, gpsLng: 114.3102, gpsConfirmedAt: '2026-04-15 09:30',
           sitePhotos: ['photo7.jpg', 'photo8.jpg'], siteNote: '龟裂严重，约20m²' }
+      ]
+    },
+    {
+      id: 'WO-2026-0416-001', deptId: 'D001', dept: '龙岗区交通局',
+      flightId: 'FL-2026-0414-003', taskName: '坪山河道巡检任务',
+      stationAddr: '坪山河 K5+200', status: 'CANCELLED',
+      assigneeId: null, assigneeName: null,
+      dispatchNote: null, dispatchedAt: null, viewedAt: null, submittedAt: null,
+      reviewedBy: null, reviewedAt: null,
+      closedBy: 'U001', closedAt: '2026-04-16 09:30', closeReason: '异常线索数据源错误，非该区域管辖范围，无需现场处置',
+      createdAt: '2026-04-16 08:00',
+      anomalyMedia: [
+        { id: 'M009', addr: '坪山河 K5+200', type: '水质异常', confidence: 0.72,
+          gpsLat: null, gpsLng: null, gpsConfirmedAt: null, sitePhotos: [], siteNote: '' }
       ]
     }
   ],
@@ -340,21 +355,21 @@ SIM.data = {
     today: {
       flights: { total: 3, inProgress: 1, pending: 1, completed: 1 },
       results: { completed: 1, photos: 12, videos: 1, anomalies: 4 },
-      workorders: { total: 5, pendingAssign: 1, assigned: 1, inProgress: 1, pendingReview: 2, rejected: 0, closed: 0 }
+      workorders: { total: 5, pendingAssign: 1, assigned: 1, inProgress: 1, pendingReview: 2, rejected: 0, closed: 0, cancelled: 0 }
     },
     total: {
       flights: { total: 47, inProgress: 1, pending: 2, completed: 44 },
       results: { completed: 44, photos: 312, videos: 44, anomalies: 87 },
-      workorders: { total: 73, pendingAssign: 2, assigned: 3, inProgress: 4, pendingReview: 8, rejected: 2, closed: 54 }
+      workorders: { total: 74, pendingAssign: 2, assigned: 3, inProgress: 4, pendingReview: 8, rejected: 2, closed: 54, cancelled: 1 }
     }
   },
 
   statsExecutor: {
     today: {
-      workorders: { pendingFollow: 1, inProgress: 1, pendingReview: 1, closed: 2 }
+      workorders: { pendingFollow: 1, inProgress: 1, pendingReview: 1, closed: 2, cancelled: 0 }
     },
     total: {
-      workorders: { pendingFollow: 3, inProgress: 2, pendingReview: 1, closed: 12 }
+      workorders: { pendingFollow: 3, inProgress: 2, pendingReview: 1, closed: 13, cancelled: 0 }
     }
   }
 };
@@ -364,7 +379,7 @@ SIM.utils = {
   getStatusLabel(status) {
     const map = {
       PENDING_ASSIGN: '待指派', ASSIGNED: '已指派', IN_PROGRESS: '跟进中',
-      PENDING_REVIEW: '待复核', REJECTED: '已打回', CLOSED: '已完成',
+      PENDING_REVIEW: '待复核', REJECTED: '已打回', CLOSED: '已完成', CANCELLED: '已关闭',
       SUBMITTED: '已提交', PROCESSING: '处理中', RESOLVED: '已完成',
       ACTIVE: 'ACTIVE', DELETED: 'DELETED', PENDING: '待执行', COMPLETED: '已完成'
     };
@@ -378,7 +393,7 @@ SIM.utils = {
   getStatusColor(status) {
     const map = {
       PENDING_ASSIGN: '#FA8C16', ASSIGNED: '#1677FF', IN_PROGRESS: '#1677FF',
-      PENDING_REVIEW: '#722ED1', REJECTED: '#F5222D', CLOSED: '#52C41A',
+      PENDING_REVIEW: '#722ED1', REJECTED: '#F5222D', CLOSED: '#52C41A', CANCELLED: '#8C8C8C',
       SUBMITTED: '#1677FF', PROCESSING: '#1677FF', RESOLVED: '#52C41A',
       ACTIVE: '#52C41A', DELETED: '#8C8C8C', PENDING: '#8C8C8C', COMPLETED: '#52C41A'
     };
@@ -387,7 +402,7 @@ SIM.utils = {
   getStatusBg(status) {
     const map = {
       PENDING_ASSIGN: '#FFF7E6', ASSIGNED: '#E6F4FF', IN_PROGRESS: '#E6F4FF',
-      PENDING_REVIEW: '#F9F0FF', REJECTED: '#FFF1F0', CLOSED: '#F6FFED',
+      PENDING_REVIEW: '#F9F0FF', REJECTED: '#FFF1F0', CLOSED: '#F6FFED', CANCELLED: '#FAFAFA',
       SUBMITTED: '#E6F4FF', PROCESSING: '#E6F4FF', RESOLVED: '#F6FFED',
       ACTIVE: '#F6FFED', DELETED: '#F5F5F5', PENDING: '#F5F5F5', COMPLETED: '#F6FFED'
     };
