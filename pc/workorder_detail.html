@@ -80,17 +80,18 @@
       margin: 0 auto;
       aspect-ratio: 1;
       border-radius: 6px;
-      background: linear-gradient(135deg, #e0f0ff, #bae0ff);
+      background: #fff;
+      border: 1px solid #F0F0F0;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       cursor: pointer;
-      gap: 2px;
       transition: transform 0.15s;
-      padding: 6px 4px;
+      overflow: hidden;
       box-sizing: border-box;
     }
+    .media-thumb .thumb-img { margin-bottom: 4px; }
     .media-thumb:hover { transform: scale(1.03); }
     .media-thumb .thumb-icon { font-size: 20px; line-height: 1; }
     .media-thumb .thumb-type { font-size: 10px; color: #1677FF; font-weight: 500; }
@@ -349,19 +350,45 @@
           </div>
         </div>`;
 
-      // WO-007: 异常线索区
-      const mediaItems = w.anomalyMedia.map((m, i) => `
-        <div class="media-thumb" onclick="openMedia(${i})" data-field>
-          <div class="thumb-icon">📷</div>
-          <div class="thumb-type">${m.type}</div>
-          <div class="thumb-conf">置信度 ${(m.confidence * 100).toFixed(0)}%</div>
-          <div class="ft">
-            <div><span class="ft-key">字段名</span><span class="ft-mono">anomaly_media[${i}]</span></div>
-            <div><span class="ft-key">类型</span>Ref→Media (label=CONFIRMED)</div>
-            <div><span class="ft-key">来源</span>上游触发，AI识别确认</div>
-            <div><span class="ft-key">说明</span>${m.type} · ${m.addr}</div>
-          </div>
-        </div>`).join('');
+      // WO-007: 异常线索区（事件→原子素材两层结构）
+      const eventMap = new Map();
+      w.anomalyMedia.forEach((m, i) => {
+        const eid = m.eventId || 'EVT-UNKNOWN';
+        if (!eventMap.has(eid)) eventMap.set(eid, []);
+        eventMap.get(eid).push({ media: m, idx: i });
+      });
+
+      const mediaItems = [...eventMap.entries()].map(([eventId, items]) => {
+        const first = items[0].media;
+        return `
+          <div class="media-event-group" style="margin-bottom:12px">
+            <div class="media-event-label" style="font-size:13px;font-weight:600;color:#262626;margin-bottom:6px" data-field>
+              异常线索：${first.type}（${eventId} · ${items.length}个原子素材）
+              <div class="ft">
+                <div><span class="ft-key">字段名</span><span class="ft-mono">event_ids</span></div>
+                <div><span class="ft-key">类型</span>Ref[]→Event</div>
+                <div><span class="ft-key">来源</span>上游触发，至少1个</div>
+                <div><span class="ft-key">说明</span>关联上游事件（AI识别+人工标注），工单由事件驱动生成</div>
+              </div>
+            </div>
+            <div class="media-grid">
+              ${items.map(({ media: m, idx: i }) => {
+                const aimg = getAnomalyImgStyle(m.type);
+                return `
+                <div class="media-thumb" onclick="openMedia(${i})" data-field>
+                  <div class="thumb-img" style="background:${aimg.gradient};width:100%;height:72px;border-radius:4px 4px 0 0;display:flex;align-items:center;justify-content:center;font-size:28px">${aimg.icon}</div>
+                  <div class="thumb-type">${m.type}</div>
+                  <div class="thumb-conf">置信度 ${(m.confidence * 100).toFixed(0)}%</div>
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">anomaly_media[${i}]</span></div>
+                    <div><span class="ft-key">类型</span>Ref→Media (label=CONFIRMED)</div>
+                    <div><span class="ft-key">来源</span>AI识别引擎标记</div>
+                    <div><span class="ft-key">说明</span>${m.type}异常原子素材 · 置信度${(m.confidence * 100).toFixed(0)}% · 点击查看大图</div>
+                  </div>
+                </div>`;}).join('')}
+            </div>
+          </div>`;
+      }).join('');
 
       // WO-008: 处置记录时间线（现场核实缩略图与大图索引）
       window.__woSitePhotoFlat = [];
@@ -396,7 +423,7 @@
               <span class="field-label">归属单位</span>
               <span class="field-value" data-field>${w.dept}
                 <div class="ft"><div><span class="ft-key">字段名</span><span class="ft-mono">dept_id → dept.name</span></div>
-                  <div><span class="ft-key">类型</span>Ref→Dept</div><div><span class="ft-key">来源</span>上游触发</div>
+                  <div><span class="ft-key">类型</span>Ref→Dept</div><div><span class="ft-key">来源</span>运营人员选择</div>
                   <div><span class="ft-key">说明</span>归属单位</div></div>
               </span>
             </div>
@@ -445,7 +472,7 @@
         ${dispatchCard}
 
         <div class="pc-card">
-          <div class="card-header">异常线索（确认异常${w.anomalyMedia.length}张）</div>
+          <div class="card-header">异常线索（确认异常${w.eventIds.length}个）</div>
           <div class="card-body">
             <div class="media-grid">${mediaItems}</div>
           </div>
@@ -463,10 +490,10 @@
     function buildTimeline(w) {
       const isDirectClose = w.status === 'CANCELLED';
       const baseNodes = [
-        { label: '飞行架次完成', meta: `${w.flightId} · ${w.taskName}`, ts: w.createdAt, done: true },
+        { label: '飞行任务实例完成', meta: `${w.flightId} · ${w.taskName}`, ts: w.createdAt, done: true },
         { label: '进入待识别确认', meta: '系统自动', ts: w.createdAt, done: true },
         { label: '开始识别确认', meta: '数据处理人员', ts: w.createdAt, done: true },
-        { label: '识别完成', meta: `AI识别 · 确认异常${w.anomalyMedia.length}张`, ts: w.createdAt, done: true },
+        { label: '识别完成', meta: `AI识别 · 确认异常${w.eventIds.length}个`, ts: w.createdAt, done: true },
         { label: '工单生成', meta: `创建时间：${w.createdAt}`, ts: w.createdAt, done: true }
       ];
 
@@ -545,6 +572,16 @@
     }
 
     let currentMediaIdx = 0;
+    function getAnomalyImgStyle(type) {
+      const map = {
+        '路面破损': { gradient: 'linear-gradient(135deg, #8B7355 0%, #A0522D 40%, #C4A46C 100%)', icon: '🛣️' },
+        '护栏损坏': { gradient: 'linear-gradient(135deg, #6B6B6B 0%, #909090 40%, #B8B8B8 100%)', icon: '🚧' },
+        '水质异常': { gradient: 'linear-gradient(135deg, #1C6EA4 0%, #2196F3 40%, #64B5F6 100%)', icon: '🌊' },
+        '设备异常': { gradient: 'linear-gradient(135deg, #8B4513 0%, #D2691E 40%, #E8A84C 100%)', icon: '⚙️' },
+        '管道渗漏': { gradient: 'linear-gradient(135deg, #2C3E50 0%, #546E7A 40%, #78909C 100%)', icon: '🔧' }
+      };
+      return map[type] || { gradient: 'linear-gradient(135deg, #4A5568 0%, #667eea 40%, #764ba2 100%)', icon: '📷' };
+    }
     function openMedia(idx) {
       currentMediaIdx = idx;
       const m = localWo.anomalyMedia[idx];
@@ -557,7 +594,7 @@
             <button onclick="this.closest('.media-modal').remove()"
               style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer">×</button>
           </div>
-          <div style="background:#0a0a0a;border-radius:8px;height:240px;display:flex;align-items:center;justify-content:center;font-size:64px">📷</div>
+          <div style="background:${getAnomalyImgStyle(m.type).gradient};border-radius:8px;height:240px;display:flex;align-items:center;justify-content:center;font-size:72px">${getAnomalyImgStyle(m.type).icon}</div>
           <div style="margin-top:12px;font-size:13px;color:rgba(255,255,255,0.7)">
             📍 ${m.addr} · AI类型: ${m.type} · 置信度: ${(m.confidence*100).toFixed(0)}%
           </div>

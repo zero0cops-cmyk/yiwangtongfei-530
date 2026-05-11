@@ -152,8 +152,8 @@
             <div class="ft">
               <div><span class="ft-key">字段名</span><span class="ft-mono">flights.total</span></div>
               <div><span class="ft-key">类型</span>Int</div>
-              <div><span class="ft-key">来源</span>STAT-002 架次统计</div>
-              <div><span class="ft-key">说明</span>本局全部架次数量</div>
+              <div><span class="ft-key">来源</span>STAT-002 任务实例统计</div>
+              <div><span class="ft-key">说明</span>本局全部任务实例数量</div>
             </div>
           </div>
           <div class="stat-item" data-field>
@@ -163,7 +163,7 @@
               <div><span class="ft-key">字段名</span><span class="ft-mono">flights.inProgress</span></div>
               <div><span class="ft-key">类型</span>Int</div>
               <div><span class="ft-key">来源</span>STAT-002 COUNT WHERE status=IN_PROGRESS</div>
-              <div><span class="ft-key">说明</span>执行中架次数量（口径：待执行/执行中/已完成）</div>
+              <div><span class="ft-key">说明</span>执行中任务实例数量（口径：待执行/执行中/已完成）</div>
             </div>
           </div>
           <div class="stat-item" data-field>
@@ -173,7 +173,7 @@
               <div><span class="ft-key">字段名</span><span class="ft-mono">flights.pending</span></div>
               <div><span class="ft-key">类型</span>Int</div>
               <div><span class="ft-key">来源</span>STAT-002 COUNT WHERE status=PENDING</div>
-              <div><span class="ft-key">说明</span>待执行架次数量（已排期未起飞）</div>
+              <div><span class="ft-key">说明</span>待执行任务实例数量（已排期未起飞）</div>
             </div>
           </div>
           <div class="stat-item" data-field>
@@ -183,7 +183,7 @@
               <div><span class="ft-key">字段名</span><span class="ft-mono">flights.completed</span></div>
               <div><span class="ft-key">类型</span>Int</div>
               <div><span class="ft-key">来源</span>STAT-002 COUNT WHERE status=COMPLETED</div>
-              <div><span class="ft-key">说明</span>已完成架次数量</div>
+              <div><span class="ft-key">说明</span>已完成任务实例数量</div>
             </div>
           </div>
         </div>
@@ -201,8 +201,8 @@
             <div class="ft">
               <div><span class="ft-key">字段名</span><span class="ft-mono">results.completed</span></div>
               <div><span class="ft-key">类型</span>Int</div>
-              <div><span class="ft-key">来源</span>STAT-003 已完成架次数</div>
-              <div><span class="ft-key">说明</span>status=COMPLETED的架次数</div>
+              <div><span class="ft-key">来源</span>STAT-003 已完成任务实例数</div>
+              <div><span class="ft-key">说明</span>status=COMPLETED的任务实例数</div>
             </div>
           </div>
           <div class="stat-item" data-field>
@@ -212,7 +212,7 @@
               <div><span class="ft-key">字段名</span><span class="ft-mono">results.photos</span></div>
               <div><span class="ft-key">类型</span>Int</div>
               <div><span class="ft-key">来源</span>STAT-003 归档照片总数</div>
-              <div><span class="ft-key">说明</span>已归档的照片素材数量</div>
+              <div><span class="ft-key">说明</span>已归档的照片原子素材数量</div>
             </div>
           </div>
           <div class="stat-item" data-field>
@@ -222,7 +222,7 @@
               <div><span class="ft-key">字段名</span><span class="ft-mono">results.videos</span></div>
               <div><span class="ft-key">类型</span>Int</div>
               <div><span class="ft-key">来源</span>STAT-003 归档视频总数</div>
-              <div><span class="ft-key">说明</span>已归档的视频素材数量</div>
+              <div><span class="ft-key">说明</span>已归档的视频原子素材数量</div>
             </div>
           </div>
           <div class="stat-item" data-field>
@@ -232,7 +232,7 @@
               <div><span class="ft-key">字段名</span><span class="ft-mono">results.anomalies</span></div>
               <div><span class="ft-key">类型</span>Int</div>
               <div><span class="ft-key">来源</span>STAT-003 COUNT WHERE label=CONFIRMED</div>
-              <div><span class="ft-key">说明</span>AI识别并确认的异常素材总数</div>
+              <div><span class="ft-key">说明</span>飞行任务中经人工或AI识别确认的异常事件总数</div>
             </div>
           </div>
         </div>

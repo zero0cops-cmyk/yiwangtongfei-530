@@ -71,6 +71,44 @@
     .anomaly-status { font-size: 12px; }
     .anomaly-body { padding: 10px 12px; background: #fff; }
 
+    /* 异常原子素材缩略图（仿真航拍图） */
+    .anomaly-img-thumb {
+      width: 100%; height: 150px; border-radius: 6px; overflow: hidden;
+      position: relative; cursor: pointer; margin-bottom: 8px;
+      border: 1px solid #E8E8E8; transition: opacity 0.15s;
+    }
+    .anomaly-img-thumb:active { opacity: 0.85; }
+    .anomaly-img-inner {
+      width: 100%; height: 100%; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 4px;
+    }
+    .anomaly-img-icon { font-size: 42px; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+    .anomaly-img-label { font-size: 14px; font-weight: 600; color: #fff;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.6); }
+    .anomaly-img-addr { font-size: 11px; color: rgba(255,255,255,0.85);
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+    .anomaly-img-tag {
+      position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.55);
+      color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 11px;
+    }
+    /* 异常素材大图预览 */
+    .anomaly-preview-mask {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 10002;
+      display: none; align-items: center; justify-content: center; flex-direction: column;
+    }
+    .anomaly-preview-mask.show { display: flex; }
+    .anomaly-preview-img {
+      width: min(340px, 90vw); height: 260px; border-radius: 8px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .anomaly-preview-icon { font-size: 88px; line-height: 1; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3)); }
+    .anomaly-preview-info { color: rgba(255,255,255,0.9); margin-top: 14px;
+      font-size: 14px; text-align: center; line-height: 1.8; }
+    .anomaly-preview-close {
+      position: absolute; top: 16px; right: 16px; background: none; border: none;
+      color: #fff; font-size: 28px; cursor: pointer; z-index: 1;
+    }
+
     /* GPS围栏确认区 (WO-011) */
     .gps-confirm-area { padding: 10px; background: #F0F5FF; border-radius: 6px; margin-bottom: 10px; }
     .gps-confirm-area.confirmed { background: #F6FFED; }
@@ -217,6 +255,13 @@
     </div>
   </div>
 
+  <!-- 异常原子素材大图预览 -->
+  <div class="anomaly-preview-mask" id="anomaly-preview-mask" onclick="closeAnomalyPreview()">
+    <button class="anomaly-preview-close" onclick="closeAnomalyPreview()">×</button>
+    <div class="anomaly-preview-img" id="anomaly-preview-img" onclick="event.stopPropagation()"></div>
+    <div class="anomaly-preview-info" id="anomaly-preview-info"></div>
+  </div>
+
   <script>
     const session = JSON.parse(localStorage.getItem('ywsf_session') || 'null');
     if (!session) window.location.replace('login.html');
@@ -300,7 +345,7 @@
             <div class="ft">
               <div><span class="ft-key">字段名</span><span class="ft-mono">dept_id → dept.name</span></div>
               <div><span class="ft-key">类型</span>Ref→Dept</div>
-              <div><span class="ft-key">来源</span>上游触发，不可修改</div>
+              <div><span class="ft-key">来源</span>运营人员选择，不可修改</div>
               <div><span class="ft-key">说明</span>工单归属单位</div>
             </div>
           </span>
@@ -354,136 +399,163 @@
           </span>
         </div>` : ''}`;
 
-      // 异常线索区（逐项展开）
-      const anomalyItems = w.anomalyMedia.map((m, i) => {
-        const gpsConfirmed = gpsSimulated.includes(i) || !!m.gpsConfirmedAt;
-        const photos = localPhotos[m.id] || [];
-        const note = localNotes[m.id] || '';
+      // 异常线索区（事件→原子素材两层结构）
+      const eventMap = new Map();
+      w.anomalyMedia.forEach((m, i) => {
+        const eid = m.eventId || 'EVT-UNKNOWN';
+        if (!eventMap.has(eid)) eventMap.set(eid, []);
+        eventMap.get(eid).push({ media: m, idx: i });
+      });
 
-        const gpsArea = role === 'EXECUTOR' ? (
-          executorMaterialsLocked
-            ? `<div class="gps-confirm-area confirmed" data-field>
-            <div class="gps-status confirmed">
-              ${gpsConfirmed
-                ? `✅ 已确认到达 · ${m.gpsConfirmedAt || '—'}（提交复核后不可修改）`
-                : `⏳ 待到达（工单已提交复核，现场数据已锁定）`}
-            </div>
-            <div class="ft">
-              <div><span class="ft-key">字段名</span><span class="ft-mono">gps_confirmed_at</span></div>
-              <div><span class="ft-key">类型</span>Timestamp|null</div>
-              <div><span class="ft-key">来源</span>GPS自动写入</div>
-              <div><span class="ft-key">说明</span>提交复核后执行人侧不可再改</div>
-            </div>
-          </div>`
-            : `<div class="gps-confirm-area ${gpsConfirmed ? 'confirmed' : ''}" data-field>
-            <div class="gps-status ${gpsConfirmed ? 'confirmed' : ''}">
-              ${gpsConfirmed
-                ? `✅ 已确认到达，请上传现场材料`
-                : `⏳ 请前往该地点，进入围栏范围后系统将自动确认到达`}
-            </div>
-            <div class="ft">
-              <div><span class="ft-key">字段名</span><span class="ft-mono">gps_confirmed_at</span></div>
-              <div><span class="ft-key">类型</span>Timestamp|null</div>
-              <div><span class="ft-key">来源</span>GPS自动写入，进入围栏即写入；一次性</div>
-              <div><span class="ft-key">说明</span>该异常点GPS确认时间，WO-011仿真</div>
-            </div>
-          </div>`
-        ) : '';
+      const anomalyItems = [...eventMap.entries()].map(([eventId, items], evtIdx) => {
+        const first = items[0].media;
 
-        const clueMaterialArea = `
-          <div class="upload-area">
-            <div class="upload-title" data-field>
-              确认异常素材（AI识别）
+        const mediaItems = items.map(({ media: m, idx: i }, mi) => {
+          const gpsConfirmed = gpsSimulated.includes(i) || !!m.gpsConfirmedAt;
+          const photos = localPhotos[m.id] || [];
+          const note = localNotes[m.id] || '';
+
+          const gpsArea = role === 'EXECUTOR' ? (
+            executorMaterialsLocked
+              ? `<div class="gps-confirm-area confirmed" data-field>
+              <div class="gps-status confirmed">
+                ${gpsConfirmed
+                  ? `✅ 已确认到达 · ${m.gpsConfirmedAt || '—'}（提交复核后不可修改）`
+                  : `⏳ 待到达（工单已提交复核，现场数据已锁定）`}
+              </div>
               <div class="ft">
-                <div><span class="ft-key">字段名</span><span class="ft-mono">anomaly_media_ids</span></div>
-                <div><span class="ft-key">类型</span>Ref[]→Media</div>
-                <div><span class="ft-key">来源</span>线索识别确认结果（label=CONFIRMED）</div>
-                <div><span class="ft-key">说明</span>工单来源异常素材，复核依据之一</div>
+                <div><span class="ft-key">字段名</span><span class="ft-mono">gps_confirmed_at</span></div>
+                <div><span class="ft-key">类型</span>Timestamp|null</div>
+                <div><span class="ft-key">来源</span>GPS自动写入</div>
+                <div><span class="ft-key">说明</span>提交复核后执行人侧不可再改</div>
               </div>
-            </div>
-            <div class="photo-grid">
-              <div class="photo-thumb" onclick="openPreviewByName('anomaly_${m.id}.jpg')" title="点击查看大图">
-                <div style="width:100%;height:100%;background:linear-gradient(135deg,#d6f5ff,#91d5ff);display:flex;align-items:center;justify-content:center;font-size:20px">🛰️</div>
+            </div>`
+              : `<div class="gps-confirm-area ${gpsConfirmed ? 'confirmed' : ''}" data-field>
+              <div class="gps-status ${gpsConfirmed ? 'confirmed' : ''}">
+                ${gpsConfirmed
+                  ? `✅ 已确认到达，请上传现场材料`
+                  : `⏳ 请前往该地点，进入围栏范围后系统将自动确认到达`}
               </div>
-            </div>
-          </div>`;
-
-        const uploadArea = (role === 'EXECUTOR' && gpsConfirmed) ? (
-          executorMaterialsLocked
-            ? `<div class="upload-area">
-            <div class="upload-title" data-field>现场材料（已提交，不可编辑）
               <div class="ft">
-                <div><span class="ft-key">字段名</span><span class="ft-mono">site_photos / site_note</span></div>
-                <div><span class="ft-key">类型</span>File[] / String</div>
-                <div><span class="ft-key">来源</span>执行人提交复核前上传</div>
-                <div><span class="ft-key">说明</span>待复核/已关闭后只读展示</div>
+                <div><span class="ft-key">字段名</span><span class="ft-mono">gps_confirmed_at</span></div>
+                <div><span class="ft-key">类型</span>Timestamp|null</div>
+                <div><span class="ft-key">来源</span>GPS自动写入，进入围栏即写入；一次性</div>
+                <div><span class="ft-key">说明</span>该原子素材GPS确认时间，WO-011仿真</div>
               </div>
-            </div>
-            <div class="photo-grid">
-              ${photos.map((p, pi) => `
-                <div class="photo-thumb" onclick="openPhotoPreview('${m.id}', ${pi})" title="点击查看大图">
-                  <div style="width:100%;height:100%;background:linear-gradient(135deg,#e0f0ff,#bae0ff);display:flex;align-items:center;justify-content:center;font-size:20px">📷</div>
-                </div>`).join('')}
-            </div>
-            ${photos.length === 0 ? '<div style="font-size:12px;color:#8C8C8C;margin-bottom:6px">无现场照片</div>' : ''}
-            <div class="upload-note-readonly">${note ? note : '现场说明：无'}</div>
-          </div>`
-            : `<div class="upload-area">
-            <div class="upload-title">现场材料（GPS确认后展开）</div>
-            <div class="photo-grid" id="photos-${m.id}">
-              ${photos.map((p, pi) => `
-                <div class="photo-thumb" onclick="openPhotoPreview('${m.id}', ${pi})" title="点击查看大图">
-                  <div style="width:100%;height:100%;background:linear-gradient(135deg,#e0f0ff,#bae0ff);display:flex;align-items:center;justify-content:center;font-size:20px">📷</div>
-                  <button class="del-btn" onclick="event.stopPropagation();removePhoto('${m.id}',${pi})">×</button>
-                </div>`).join('')}
-              <div class="add-photo" onclick="addPhoto('${m.id}')">
-                <span class="add-icon">+</span>
-                <span>添加照片</span>
+            </div>`
+          ) : '';
+
+          const uploadArea = (role === 'EXECUTOR' && gpsConfirmed) ? (
+            executorMaterialsLocked
+              ? `<div class="upload-area">
+              <div class="upload-title" data-field>现场材料（已提交，不可编辑）
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">site_photos / site_note</span></div>
+                  <div><span class="ft-key">类型</span>File[] / String</div>
+                  <div><span class="ft-key">来源</span>执行人提交复核前上传</div>
+                  <div><span class="ft-key">说明</span>待复核/已关闭后只读展示</div>
+                </div>
               </div>
-            </div>
-            ${photos.length === 0 ? '<div style="font-size:12px;color:#F5222D;margin-bottom:6px">请至少上传1张现场照片</div>' : ''}
-            <textarea class="note-input" id="note-${m.id}" placeholder="现场说明（选填，最多500字）"
-              oninput="updateNote('${m.id}',this.value)" maxlength="500">${note}</textarea>
-            <div class="char-count" id="cc-${m.id}">${note.length}/500</div>
-          </div>`
-        ) : '';
+              <div class="photo-grid">
+                ${photos.map((p, pi) => `
+                  <div class="photo-thumb" onclick="openPhotoPreview('${m.id}', ${pi})" title="点击查看大图">
+                    <div style="width:100%;height:100%;background:linear-gradient(135deg,#e0f0ff,#bae0ff);display:flex;align-items:center;justify-content:center;font-size:20px">📷</div>
+                  </div>`).join('')}
+              </div>
+              ${photos.length === 0 ? '<div style="font-size:12px;color:#8C8C8C;margin-bottom:6px">无现场照片</div>' : ''}
+              <div class="upload-note-readonly">${note ? note : '现场说明：无'}</div>
+            </div>`
+              : `<div class="upload-area">
+              <div class="upload-title">现场材料（GPS确认后展开）</div>
+              <div class="photo-grid" id="photos-${m.id}">
+                ${photos.map((p, pi) => `
+                  <div class="photo-thumb" onclick="openPhotoPreview('${m.id}', ${pi})" title="点击查看大图">
+                    <div style="width:100%;height:100%;background:linear-gradient(135deg,#e0f0ff,#bae0ff);display:flex;align-items:center;justify-content:center;font-size:20px">📷</div>
+                    <button class="del-btn" onclick="event.stopPropagation();removePhoto('${m.id}',${pi})">×</button>
+                  </div>`).join('')}
+                <div class="add-photo" onclick="addPhoto('${m.id}')">
+                  <span class="add-icon">+</span>
+                  <span>添加照片</span>
+                </div>
+              </div>
+              ${photos.length === 0 ? '<div style="font-size:12px;color:#F5222D;margin-bottom:6px">请至少上传1张现场照片</div>' : ''}
+              <textarea class="note-input" id="note-${m.id}" placeholder="现场说明（选填，最多500字）"
+                oninput="updateNote('${m.id}',this.value)" maxlength="500">${note}</textarea>
+              <div class="char-count" id="cc-${m.id}">${note.length}/500</div>
+            </div>`
+          ) : '';
 
-        const reviewMaterialArea = (role === 'ADMIN' && w.status === 'PENDING_REVIEW') ? `
-          <div class="upload-area">
-            <div class="upload-title">现场材料（执行人已提交）</div>
-            <div class="photo-grid">
-              ${photos.map((p, pi) => `
-                <div class="photo-thumb" onclick="openPhotoPreview('${m.id}', ${pi})" title="点击查看大图">
-                  <div style="width:100%;height:100%;background:linear-gradient(135deg,#e0f0ff,#bae0ff);display:flex;align-items:center;justify-content:center;font-size:20px">📷</div>
-                </div>`).join('')}
-            </div>
-            ${photos.length === 0 ? '<div style="font-size:12px;color:#F5222D;margin-bottom:6px">未上传现场照片</div>' : ''}
-            <div class="upload-note-readonly">${note ? note : '现场说明：无'}</div>
-          </div>` : '';
+          const reviewMaterialArea = (role === 'ADMIN' && w.status === 'PENDING_REVIEW') ? `
+            <div class="upload-area">
+              <div class="upload-title">现场材料（执行人已提交）</div>
+              <div class="photo-grid">
+                ${photos.map((p, pi) => `
+                  <div class="photo-thumb" onclick="openPhotoPreview('${m.id}', ${pi})" title="点击查看大图">
+                    <div style="width:100%;height:100%;background:linear-gradient(135deg,#e0f0ff,#bae0ff);display:flex;align-items:center;justify-content:center;font-size:20px">📷</div>
+                  </div>`).join('')}
+              </div>
+              ${photos.length === 0 ? '<div style="font-size:12px;color:#F5222D;margin-bottom:6px">未上传现场照片</div>' : ''}
+              <div class="upload-note-readonly">${note ? note : '现场说明：无'}</div>
+            </div>` : '';
 
-        return `
-          <div class="anomaly-item">
-            <div class="anomaly-head" onclick="toggleAnomaly('body-${i}')">
-              <div class="anomaly-head-left">
-                <span class="anomaly-title" data-field>异常${i + 1}：${m.type}
-                  <div class="ft">
-                    <div><span class="ft-key">字段名</span><span class="ft-mono">anomaly_media.type</span></div>
-                    <div><span class="ft-key">类型</span>String</div>
-                    <div><span class="ft-key">来源</span>AI识别结果</div>
-                    <div><span class="ft-key">说明</span>该异常的AI识别类型</div>
-                  </div>
-                </span>
+          const anomalyImgStyle = getAnomalyImgStyle(m.type);
+          return `
+            <div class="anomaly-media-item" style="border-top:1px solid #F0F0F0;padding-top:10px;${mi === 0 ? 'border-top:none;padding-top:0' : 'margin-top:0'}">
+              <div class="anomaly-img-thumb" onclick="openAnomalyPreview('${m.id}', '${m.type.replace(/'/g, "\\'")}', '${m.addr.replace(/'/g, "\\'")}', '${anomalyImgStyle.gradient.replace(/'/g, "\\'")}', '${anomalyImgStyle.icon}', ${(m.confidence * 100).toFixed(0)})" data-field>
+                <div class="anomaly-img-inner" style="background:${anomalyImgStyle.gradient}">
+                  <span class="anomaly-img-icon">${anomalyImgStyle.icon}</span>
+                  <span class="anomaly-img-label">${m.type}</span>
+                  <span class="anomaly-img-addr">📍 ${m.addr}</span>
+                </div>
+                <span class="anomaly-img-tag">${(m.confidence * 100).toFixed(0)}%</span>
+                <div class="ft">
+                  <div><span class="ft-key">字段名</span><span class="ft-mono">anomaly_media[${i}]</span></div>
+                  <div><span class="ft-key">类型</span>Ref→Media (label=CONFIRMED)</div>
+                  <div><span class="ft-key">来源</span>AI识别引擎标记</div>
+                  <div><span class="ft-key">说明</span>${m.type}异常原子素材 · 置信度${(m.confidence * 100).toFixed(0)}% · 点击查看大图</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
                 <span class="anomaly-subtitle" data-field>📍 ${m.addr}
                   <div class="ft">
                     <div><span class="ft-key">字段名</span><span class="ft-mono">anomaly_addr</span></div>
                     <div><span class="ft-key">类型</span>String</div>
-                    <div><span class="ft-key">来源</span>素材坐标反解</div>
-                    <div><span class="ft-key">说明</span>该异常点位置地址</div>
+                    <div><span class="ft-key">来源</span>原子素材坐标反解</div>
+                    <div><span class="ft-key">说明</span>该原子素材位置地址</div>
                   </div>
                 </span>
+                <span style="font-size:12px;color:${gpsConfirmed ? '#52C41A' : '#FA8C16'}">
+                  ${gpsConfirmed ? '✅ 已到达' : '⏳ 待到达'}
+                </span>
+              </div>
+              ${gpsArea}
+              ${uploadArea}
+              ${reviewMaterialArea}
+              ${role !== 'EXECUTOR' ? `<div style="font-size:12px;color:#8C8C8C">
+                ${gpsConfirmed
+                  ? `GPS已确认到达 · ${m.gpsConfirmedAt || '仿真确认'}`
+                  : '执行人员尚未到达'}
+                ${localPhotos[m.id]?.length ? `· 已上传${localPhotos[m.id].length}张照片` : ''}
+              </div>` : ''}
+            </div>`;
+        }).join('');
+
+        return `
+          <div class="anomaly-item">
+            <div class="anomaly-head" onclick="toggleAnomaly('event-body-${evtIdx}')">
+              <div class="anomaly-head-left">
+                <span class="anomaly-title" data-field>异常线索${evtIdx + 1}：${first.type}
+                  <div class="ft">
+                    <div><span class="ft-key">字段名</span><span class="ft-mono">event_ids</span></div>
+                    <div><span class="ft-key">类型</span>Ref[]→Event</div>
+                    <div><span class="ft-key">来源</span>上游触发，至少1个</div>
+                    <div><span class="ft-key">说明</span>关联上游事件（AI识别+人工标注），工单由事件驱动生成</div>
+                  </div>
+                </span>
+                <span class="anomaly-subtitle">${eventId} · ${items.length}个原子素材</span>
               </div>
               <div style="text-align:right">
-                <div class="anomaly-conf" data-field>置信度 ${(m.confidence * 100).toFixed(0)}%
+                <div class="anomaly-conf" data-field>置信度 ${(first.confidence * 100).toFixed(0)}%
                   <div class="ft">
                     <div><span class="ft-key">字段名</span><span class="ft-mono">confidence</span></div>
                     <div><span class="ft-key">类型</span>Float 0-1</div>
@@ -491,22 +563,11 @@
                     <div><span class="ft-key">说明</span>AI识别置信度</div>
                   </div>
                 </div>
-                <div class="anomaly-status" style="color:${gpsConfirmed ? '#52C41A' : '#FA8C16'}">
-                  ${gpsConfirmed ? '✅ 已到达' : '⏳ 待到达'}
-                </div>
+                <span style="font-size:12px;color:#8C8C8C;display:block">${items.length}个原子素材 ▾</span>
               </div>
             </div>
-            <div class="anomaly-body" id="body-${i}" style="${i === selectedPoint ? '' : 'display:none'}">
-              ${clueMaterialArea}
-              ${gpsArea}
-              ${uploadArea}
-              ${reviewMaterialArea}
-              ${role !== 'EXECUTOR' ? `<div style="font-size:12px;color:#8C8C8C">
-                ${gpsConfirmed
-                  ? `GPS已确认到达 · ${m.gpsConfirmedAt || '仿真确认'}`
-                  : '执行人员尚未到达该异常点'}
-                ${localPhotos[m.id]?.length ? `· 已上传${localPhotos[m.id].length}张照片` : ''}
-              </div>` : ''}
+            <div class="anomaly-body" id="event-body-${evtIdx}" style="${evtIdx === 0 ? '' : 'display:none'}">
+              ${mediaItems}
             </div>
           </div>`;
       }).join('');
@@ -596,7 +657,7 @@
         <!-- 异常线索区 -->
         <div class="card">
           <div class="anomaly-header">
-            <span class="section-title" style="margin:0">确认异常 共${w.anomalyMedia.length}张</span>
+            <span class="section-title" style="margin:0">异常线索 共${w.eventIds.length}个</span>
           </div>
           ${anomalyItems}
         </div>
@@ -709,6 +770,32 @@
 
     function closePhotoPreview() {
       document.getElementById('photo-preview-mask').classList.remove('show');
+    }
+
+    // 异常原子素材 - 类型→仿真航拍图样式
+    function getAnomalyImgStyle(type) {
+      const map = {
+        '路面破损': { gradient: 'linear-gradient(135deg, #8B7355 0%, #A0522D 40%, #C4A46C 100%)', icon: '🛣️' },
+        '护栏损坏': { gradient: 'linear-gradient(135deg, #6B6B6B 0%, #909090 40%, #B8B8B8 100%)', icon: '🚧' },
+        '水质异常': { gradient: 'linear-gradient(135deg, #1C6EA4 0%, #2196F3 40%, #64B5F6 100%)', icon: '🌊' },
+        '设备异常': { gradient: 'linear-gradient(135deg, #8B4513 0%, #D2691E 40%, #E8A84C 100%)', icon: '⚙️' },
+        '管道渗漏': { gradient: 'linear-gradient(135deg, #2C3E50 0%, #546E7A 40%, #78909C 100%)', icon: '🔧' }
+      };
+      return map[type] || { gradient: 'linear-gradient(135deg, #4A5568 0%, #667eea 40%, #764ba2 100%)', icon: '📷' };
+    }
+
+    function openAnomalyPreview(mediaId, type, addr, gradient, icon, confidence) {
+      document.getElementById('anomaly-preview-img').style.background = gradient;
+      document.getElementById('anomaly-preview-img').innerHTML =
+        '<span class="anomaly-preview-icon">' + icon + '</span>';
+      document.getElementById('anomaly-preview-info').innerHTML =
+        '<div>' + type + ' · 置信度 ' + confidence + '%</div>' +
+        '<div style="font-size:12px;color:rgba(255,255,255,0.65);margin-top:4px">' + mediaId + ' · 📍 ' + addr + '</div>';
+      document.getElementById('anomaly-preview-mask').classList.add('show');
+    }
+
+    function closeAnomalyPreview() {
+      document.getElementById('anomaly-preview-mask').classList.remove('show');
     }
 
     // WO-013: 派发
@@ -860,7 +947,7 @@
           html: localWo.anomalyMedia.map((m, i) => `
             <button class="sim-btn" onclick="simGPS(${i})"
               ${(gpsSimulated.includes(i) || !!m.gpsConfirmedAt) ? 'style="opacity:0.5;cursor:default"' : ''}>
-              ${(gpsSimulated.includes(i) || !!m.gpsConfirmedAt) ? '✅' : '▶'} 模拟进入围栏·异常${i+1}
+              ${(gpsSimulated.includes(i) || !!m.gpsConfirmedAt) ? '✅' : '▶'} 模拟进入围栏·${m.id} ${m.addr}
             </button>
           `).join('')
         }

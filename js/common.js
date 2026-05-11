@@ -108,7 +108,7 @@ SIM.applyChannelGuard = function() {
 };
 SIM.applyChannelGuard();
 
-/** PRD §1.3：执行人员无 H5 任务监控；任务/架次链路子页禁止直链（仿真） */
+/** PRD §1.3：执行人员无 H5 任务监控；任务/任务实例链路子页禁止直链（仿真） */
 SIM.guardExecutorNoTaskMonitorPages = function() {
   const s = SIM.session || JSON.parse(localStorage.getItem('ywsf_session') || 'null');
   if (s && s.role === 'EXECUTOR') {
@@ -143,11 +143,12 @@ SIM.data = {
       dispatchNote: '请重点核查K22段护栏',
       dispatchedAt: '2026-04-15 08:30', viewedAt: '2026-04-15 09:00',
       submittedAt: '2026-04-15 11:45', createdAt: '2026-04-15 07:00',
+      eventIds: ['EVT-001', 'EVT-002'],
       anomalyMedia: [
-        { id: 'M001', addr: '龙岗G94 K22+400', type: '路面破损', confidence: 0.91,
+        { id: 'M001', eventId: 'EVT-001', addr: '龙岗G94 K22+400', type: '路面破损', confidence: 0.91,
           gpsLat: 22.7231, gpsLng: 114.2456, gpsConfirmedAt: '2026-04-15 10:15',
           sitePhotos: ['photo1.jpg', 'photo2.jpg'], siteNote: '路面有明显裂缝，约5m²' },
-        { id: 'M002', addr: '龙岗G94 K23+100', type: '护栏损坏', confidence: 0.86,
+        { id: 'M002', eventId: 'EVT-002', addr: '龙岗G94 K23+100', type: '护栏损坏', confidence: 0.86,
           gpsLat: 22.7298, gpsLng: 114.2512, gpsConfirmedAt: '2026-04-15 10:45',
           sitePhotos: ['photo3.jpg'], siteNote: '' }
       ]
@@ -159,8 +160,9 @@ SIM.data = {
       assigneeId: null, assigneeName: null,
       dispatchNote: null, dispatchedAt: null, viewedAt: null, submittedAt: null,
       createdAt: '2026-04-14 16:20',
+      eventIds: ['EVT-003'],
       anomalyMedia: [
-        { id: 'M003', addr: '坪山河 K5+200', type: '水质异常', confidence: 0.78,
+        { id: 'M003', eventId: 'EVT-003', addr: '坪山河 K5+200', type: '水质异常', confidence: 0.78,
           gpsLat: null, gpsLng: null, gpsConfirmedAt: null, sitePhotos: [], siteNote: '' }
       ]
     },
@@ -171,8 +173,9 @@ SIM.data = {
       assigneeId: 'U003', assigneeName: '王五',
       dispatchNote: '需携带绝缘手套', dispatchedAt: '2026-04-13 14:00',
       viewedAt: null, submittedAt: null, createdAt: '2026-04-13 12:30',
+      eventIds: ['EVT-004'],
       anomalyMedia: [
-        { id: 'M004', addr: '布吉变电站 3号线', type: '设备异常', confidence: 0.83,
+        { id: 'M004', eventId: 'EVT-004', addr: '布吉变电站 3号线', type: '设备异常', confidence: 0.83,
           gpsLat: null, gpsLng: null, gpsConfirmedAt: null, sitePhotos: [], siteNote: '' }
       ]
     },
@@ -186,8 +189,9 @@ SIM.data = {
       reviewedBy: 'U001', reviewedAt: '2026-04-13 09:00', closedAt: '2026-04-13 09:00',
       closedBy: 'U001', closeReason: null,
       createdAt: '2026-04-12 08:00',
+      eventIds: ['EVT-005'],
       anomalyMedia: [
-        { id: 'M005', addr: '龙岗G94 K18+800', type: '路面破损', confidence: 0.88,
+        { id: 'M005', eventId: 'EVT-005', addr: '龙岗G94 K18+800', type: '路面破损', confidence: 0.88,
           gpsLat: 22.7145, gpsLng: 114.2321, gpsConfirmedAt: '2026-04-12 11:00',
           sitePhotos: ['photo5.jpg'], siteNote: '已核实并拍照记录' }
       ]
@@ -199,8 +203,9 @@ SIM.data = {
       assigneeId: 'U002', assigneeName: '李四',
       dispatchNote: null, dispatchedAt: '2026-04-15 06:00',
       viewedAt: '2026-04-15 06:30', submittedAt: null, createdAt: '2026-04-15 05:30',
+      eventIds: ['EVT-006'],
       anomalyMedia: [
-        { id: 'M006', addr: '坑梓 K12+500', type: '管道渗漏', confidence: 0.79,
+        { id: 'M006', eventId: 'EVT-006', addr: '坑梓 K12+500', type: '管道渗漏', confidence: 0.79,
           gpsLat: null, gpsLng: null, gpsConfirmedAt: null, sitePhotos: [], siteNote: '' }
       ]
     },
@@ -213,8 +218,9 @@ SIM.data = {
       viewedAt: '2026-04-13 11:00', submittedAt: '2026-04-14 09:00',
       rejectedAt: '2026-04-14 14:00', rejectNote: '现场照片角度不符合要求，请重新拍摄',
       createdAt: '2026-04-13 09:00',
+      eventIds: ['EVT-007'],
       anomalyMedia: [
-        { id: 'M007', addr: '横岗水库 西侧入口', type: '水质异常', confidence: 0.82,
+        { id: 'M007', eventId: 'EVT-007', addr: '横岗水库 西侧入口', type: '水质异常', confidence: 0.82,
           gpsLat: 22.7356, gpsLng: 114.2698, gpsConfirmedAt: '2026-04-13 12:00',
           sitePhotos: ['photo6.jpg'], siteNote: '' }
       ]
@@ -227,8 +233,9 @@ SIM.data = {
       dispatchNote: null, dispatchedAt: '2026-04-15 07:30',
       viewedAt: '2026-04-15 08:00', submittedAt: '2026-04-15 13:00',
       createdAt: '2026-04-15 07:00',
+      eventIds: ['EVT-008'],
       anomalyMedia: [
-        { id: 'M008', addr: '平湖 G107 K33+200', type: '路面破损', confidence: 0.91,
+        { id: 'M008', eventId: 'EVT-008', addr: '平湖 G107 K33+200', type: '路面破损', confidence: 0.91,
           gpsLat: 22.6982, gpsLng: 114.3102, gpsConfirmedAt: '2026-04-15 09:30',
           sitePhotos: ['photo7.jpg', 'photo8.jpg'], siteNote: '龟裂严重，约20m²' }
       ]
@@ -242,8 +249,9 @@ SIM.data = {
       reviewedBy: null, reviewedAt: null,
       closedBy: 'U001', closedAt: '2026-04-16 09:30', closeReason: '异常线索数据源错误，非该区域管辖范围，无需现场处置',
       createdAt: '2026-04-16 08:00',
+      eventIds: ['EVT-009'],
       anomalyMedia: [
-        { id: 'M009', addr: '坪山河 K5+200', type: '水质异常', confidence: 0.72,
+        { id: 'M009', eventId: 'EVT-009', addr: '坪山河 K5+200', type: '水质异常', confidence: 0.72,
           gpsLat: null, gpsLng: null, gpsConfirmedAt: null, sitePhotos: [], siteNote: '' }
       ]
     }
@@ -385,7 +393,7 @@ SIM.utils = {
     };
     return map[status] || status;
   },
-  /** 架次 / 飞行任务口径：待执行、执行中、已完成（与工单 IN_PROGRESS→跟进中 区分） */
+  /** 任务实例口径：待执行、执行中、已完成（与工单 IN_PROGRESS→跟进中 区分） */
   getFlightStatusLabel(status) {
     const map = { PENDING: '待执行', IN_PROGRESS: '执行中', COMPLETED: '已完成' };
     return map[status] != null ? map[status] : String(status || '');

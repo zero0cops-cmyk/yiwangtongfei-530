@@ -35,7 +35,7 @@
       padding-bottom: 64px;
     }
 
-    /* 架次卡片 */
+    /* 任务实例卡片 */
     .flight-card {
       background: #fff; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.06); cursor: pointer; transition: transform 0.15s;
@@ -128,7 +128,7 @@
       if (!flights.length) {
         container.innerHTML = `<div class="empty-state">
           <div class="empty-icon">🚁</div>
-          <p>暂无${currentTab === 'fly' ? '执行中' : currentTab === 'plan' ? '待执行' : '已完成'}架次</p>
+          <p>暂无${currentTab === 'fly' ? '执行中' : currentTab === 'plan' ? '待执行' : '已完成'}任务实例</p>
         </div>`;
         return;
       }
@@ -148,7 +148,7 @@
                   <div><span class="ft-key">字段名</span><span class="ft-mono">flight_id</span></div>
                   <div><span class="ft-key">类型</span>String</div>
                   <div><span class="ft-key">来源</span>系统生成，唯一</div>
-                  <div><span class="ft-key">说明</span>架次唯一编号</div>
+                  <div><span class="ft-key">说明</span>任务实例唯一编号</div>
                 </div>
               </span>
               <span class="status-tag" style="color:${statusColor};background:${statusBg}" data-field>${statusLabel}
@@ -156,7 +156,7 @@
                   <div><span class="ft-key">字段名</span><span class="ft-mono">status</span></div>
                   <div><span class="ft-key">类型</span>Enum PENDING|IN_PROGRESS|COMPLETED</div>
                   <div><span class="ft-key">来源</span>流转更新</div>
-                  <div><span class="ft-key">说明</span>架次状态：待执行 / 执行中 / 已完成</div>
+                  <div><span class="ft-key">说明</span>任务实例状态：待执行 / 执行中 / 已完成</div>
                 </div>
               </span>
             </div>
@@ -165,7 +165,7 @@
                 <div><span class="ft-key">字段名</span><span class="ft-mono">task_id → task.name</span></div>
                 <div><span class="ft-key">类型</span>Ref→Task</div>
                 <div><span class="ft-key">来源</span>任务配置继承</div>
-                <div><span class="ft-key">说明</span>架次归属任务名称</div>
+                <div><span class="ft-key">说明</span>任务实例归属任务名称</div>
               </div>
             </div>
             <div class="fc-meta">
